@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hebrew Letter Cube</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a18; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 18px 22px; pointer-events: none;
+  }
+  #title { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 0 20px rgba(100,160,255,0.8); }
+  #title span { font-size: 11px; display: block; color: rgba(255,255,255,0.45); font-weight: 400; letter-spacing: 1px; margin-top: 3px; }
+
+  #legend {
+    background: rgba(10,10,30,0.75); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 12px 16px; font-size: 11px;
+    color: rgba(255,255,255,0.7); line-height: 1.8;
+    backdrop-filter: blur(6px); pointer-events: all;
+  }
+  #legend b { color: #fff; }
+  kbd { background: rgba(255,255,255,0.12); border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 10px; }
+
+  #bottom-bar {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .bar-btn {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6); padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; font-family: inherit; letter-spacing: 1px; transition: all 0.2s;
+  }
+  .bar-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  #letter-panel {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 260px;
+    background: rgba(10,10,30,0.94); backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(255,255,255,0.1);
+    transform: translateX(-100%); transition: transform 0.3s ease;
+    z-index: 100; overflow-y: auto; display: flex; flex-direction: column;
+  }
+  #letter-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #fff; font-size: 14px; font-weight: 600;
+  }
+  .panel-close { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 18px; cursor: pointer; padding: 4px; }
+  .panel-close:hover { color: #fff; }
+  .panel-body { padding: 14px 18px; flex: 1; }
+  .group-section { margin-bottom: 16px; }
+  .group-title { color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 1px; margin-bottom: 8px; }
+  .group-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .letter-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 6px;
+    background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.12);
+    color: #fff; font-size: 18px; font-family: 'Frank Ruhl Libre', serif;
+    cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .letter-chip:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); }
+  .letter-chip[draggable] { cursor: grab; }
+  .letter-chip.dragging { opacity: 0.3; transform: scale(0.9); }
+  .letter-chip.drag-over { background: rgba(80,140,255,0.4); border-color: rgba(80,140,255,0.9); transform: scale(1.15); box-shadow: 0 0 14px rgba(80,140,255,0.4); }
+
+  .panel-note { color: rgba(255,255,255,0.3); font-size: 10px; margin: 12px 0 8px; font-style: italic; }
+  .panel-actions { display: flex; gap: 8px; }
+  .panel-btn {
+    flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7); padding: 8px 12px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.2s;
+  }
+  .panel-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  #key-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 199; display: none;
+  }
+  #key-overlay.open { display: block; }
+  #key-dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,30,0.95); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 20px; z-index: 200; display: none; min-width: 340px; max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #key-dialog.open { display: block; }
+  .key-title {
+    color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .key-field {
+    width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: 'Courier New', monospace; font-size: 13px;
+    padding: 8px 10px; border-radius: 6px; letter-spacing: 1px;
+  }
+  .key-field:focus { outline: none; border-color: rgba(80,140,255,0.6); }
+  .key-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .key-btn {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7); padding: 6px 12px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.2s;
+  }
+  .key-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .key-label { color: rgba(255,255,255,0.5); font-size: 11px; margin: 12px 0 6px; }
+  .key-error { color: #ff6b6b; font-size: 11px; margin-top: 6px; display: none; }
+  .key-error.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="title">
+    אלפבית
+    <span>Drag to orbit · Click face to rotate · Shift = reverse</span>
+  </div>
+  <div id="legend">
+    <b>Keyboard</b><br>
+    <kbd>R</kbd> <kbd>L</kbd> <kbd>U</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>B</kbd> rotate faces<br>
+    <kbd>Shift</kbd>+key = reverse
+  </div>
+</div>
+
+<div id="letter-panel">
+  <div class="panel-header">
+    <span>Letter Assignment</span>
+    <button class="panel-close" id="panel-close">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="group-section">
+      <div class="group-title">Corners · פינות (8)</div>
+      <div class="group-chips" id="chips-corners"></div>
+    </div>
+    <div class="group-section">
+      <div class="group-title">Edges · צלעות (12)</div>
+      <div class="group-chips" id="chips-edges"></div>
+    </div>
+    <div class="group-section">
+      <div class="group-title">Face Centers · פנים (6)</div>
+      <div class="group-chips" id="chips-faces"></div>
+    </div>
+    <div class="group-section">
+      <div class="group-title">Center · מרכז (1)</div>
+      <div class="group-chips" id="chips-center"></div>
+    </div>
+    <div class="panel-note">* Changing letters resets cube rotations</div>
+    <div class="panel-actions">
+      <button class="panel-btn" id="shuffle-btn">Shuffle</button>
+      <button class="panel-btn" id="reset-btn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div id="key-overlay"></div>
+<div id="key-dialog">
+  <div class="key-title">
+    <span>Cube Key</span>
+    <button class="panel-close" id="key-close">✕</button>
+  </div>
+  <div class="key-label">Current key</div>
+  <input type="text" class="key-field" id="key-display" readonly>
+  <div class="key-actions">
+    <button class="key-btn" id="key-copy">Copy</button>
+    <button class="key-btn" id="key-canonical">Canonical</button>
+  </div>
+  <div class="key-label">Load a key</div>
+  <input type="text" class="key-field" id="key-input" placeholder="e.g. ABCDEFGH-IJKLMNOPQRST-UVWXYZ-#">
+  <div class="key-actions">
+    <button class="key-btn" id="key-load">Load</button>
+  </div>
+  <div class="key-error" id="key-error">Invalid key: must be 4 groups (8-12-6-1) of unique letters A-Z + #</div>
+</div>
+
+<div id="bottom-bar">
+  <button class="bar-btn" id="letters-btn">✏ Letters</button>
+  <button class="bar-btn" id="key-btn">🔑 Key</button>
+  <button class="bar-btn" id="scramble-btn">🎲 Scramble</button>
+  <button class="bar-btn" id="autorotate-btn">⏸ Pause</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Scene ────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a18);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(5.5, 4.2, 6.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3.5;
+controls.maxDistance = 18;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+
+// ── Lighting ─────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(6, 10, 8);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x7799ff, 0.4);
+fill.position.set(-6, -4, -6);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffddaa, 0.25);
+rim.position.set(0, -8, 0);
+scene.add(rim);
+
+// ── Constants ────────────────────────────────────────────────────────
+const HEBREW = 'אבגדהוזחטיכלמנסעפצקרשתךםןףץ';
+const DEFAULT_LETTERS = [...HEBREW];
+
+const HEBREW_TO_EN = {};
+const EN_TO_HEBREW = {};
+const EN_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#';
+[...HEBREW].forEach((h, i) => {
+  HEBREW_TO_EN[h] = EN_CHARS[i];
+  EN_TO_HEBREW[EN_CHARS[i]] = h;
+});
+
+// BoxGeometry face order: +x, -x, +y, -y, +z, -z
+const FACE_AXES = [
+  { axis: 'x', sign:  1 },
+  { axis: 'x', sign: -1 },
+  { axis: 'y', sign:  1 },
+  { axis: 'y', sign: -1 },
+  { axis: 'z', sign:  1 },
+  { axis: 'z', sign: -1 },
+];
+
+// Canvas "up" and "right" world-directions for each BoxGeometry face
+// (derived from Three.js BoxGeometry buildPlane UV mapping)
+const CANVAS_DIRS = [
+  { up: [0,1,0], rt: [0,0,-1] },  // +x: up=+y, right=-z
+  { up: [0,1,0], rt: [0,0,1]  },  // -x: up=+y, right=+z
+  { up: [0,0,-1],rt: [1,0,0]  },  // +y: up=-z, right=+x
+  { up: [0,0,1], rt: [1,0,0]  },  // -y: up=+z, right=+x
+  { up: [0,1,0], rt: [1,0,0]  },  // +z: up=+y, right=+x
+  { up: [0,1,0], rt: [-1,0,0] },  // -z: up=+y, right=-x
+];
+
+function dot3(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+
+// Compute the canvas rotation so the letter orients toward cube-edges:
+//   face center (0 cube-edges) → 0
+//   edge piece  (1 cube-edge)  → letter top points toward cube-edge
+//   corner      (2 cube-edges) → letter top + right both point toward cube-edges
+function letterRotation(gx, gy, gz, faceIdx) {
+  const { up, rt } = CANVAS_DIRS[faceIdx];
+  const pos = [gx, gy, gz];
+  const axIdx = 'xyz'.indexOf(FACE_AXES[faceIdx].axis);
+
+  // For each non-face axis that is ±1, find its canvas direction (0=up 1=right 2=down 3=left)
+  const dirs = [];
+  for (let i = 0; i < 3; i++) {
+    if (i === axIdx || pos[i] === 0) continue;
+    const d = [0,0,0]; d[i] = pos[i];
+    const du = dot3(d, up), dr = dot3(d, rt);
+    if      (du > 0) dirs.push(0);
+    else if (du < 0) dirs.push(2);
+    else if (dr > 0) dirs.push(1);
+    else              dirs.push(3);
+  }
+
+  if (dirs.length === 0) return 0;                    // face center
+  if (dirs.length === 1) return dirs[0] * Math.PI/2;  // edge → top toward edge
+
+  // corner: find θ where both θ and (θ+1)%4 are in dirs
+  const s = new Set(dirs);
+  for (let t = 0; t < 4; t++) if (s.has(t) && s.has((t+1)%4)) return t * Math.PI/2;
+  return 0;
+}
+
+// 27 positions sorted: corners(8) → edges(12) → faces(6) → center(1)
+const POSITIONS = [];
+for (let x = -1; x <= 1; x++)
+  for (let y = -1; y <= 1; y++)
+    for (let z = -1; z <= 1; z++)
+      POSITIONS.push({ x, y, z, outer: (x?1:0)+(y?1:0)+(z?1:0) });
+POSITIONS.sort((a, b) => b.outer - a.outer);
+
+let letters = [...DEFAULT_LETTERS];
+
+// ── Textures ─────────────────────────────────────────────────────────
+const texCache = new Map();
+const INNER_MAT = new THREE.MeshLambertMaterial({ color: 0x111116 });
+
+function faceTex(letter, rotation = 0) {
+  const key = letter + '_' + rotation;
+  if (texCache.has(key)) return texCache.get(key);
+  const S = 256, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  // White background
+  c.fillStyle = '#fff';
+  c.fillRect(0, 0, S, S);
+  // Subtle border
+  c.strokeStyle = 'rgba(0,0,0,0.12)'; c.lineWidth = 3;
+  rr(c, 10, 10, S-20, S-20, 14); c.stroke();
+  if (letter) {
+    c.save();
+    c.translate(S/2, S/2);
+    c.rotate(rotation);
+    c.fillStyle = '#1a1a2e';
+    c.font = `bold ${S*0.56|0}px 'Frank Ruhl Libre','David','Arial Hebrew',Arial`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = 'rgba(0,0,0,0.12)';
+    c.shadowBlur = 4; c.shadowOffsetX = 1; c.shadowOffsetY = 2;
+    c.fillText(letter, 0, 3);
+    c.restore();
+  }
+  const t = new THREE.CanvasTexture(cv);
+  texCache.set(key, t);
+  return t;
+}
+
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
+// ── Cube build ───────────────────────────────────────────────────────
+const cubeGroup = new THREE.Group();
+scene.add(cubeGroup);
+const GEO = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+
+function buildCube() {
+  while (cubeGroup.children.length) {
+    const ch = cubeGroup.children[0];
+    cubeGroup.remove(ch);
+    if (Array.isArray(ch.material)) ch.material.forEach(m => { if (m !== INNER_MAT) m.dispose(); });
+  }
+  for (let i = 0; i < POSITIONS.length; i++) {
+    const { x, y, z } = POSITIONS[i];
+    const letter = letters[i];
+    const mats = FACE_AXES.map(({ axis, sign }, fi) => {
+      const p = { x, y, z };
+      if (p[axis] === sign) {
+        const rot = letterRotation(x, y, z, fi);
+        return new THREE.MeshLambertMaterial({ map: faceTex(letter, rot) });
+      }
+      return INNER_MAT;
+    });
+    const mesh = new THREE.Mesh(GEO, mats);
+    mesh.position.set(x, y, z);
+    cubeGroup.add(mesh);
+  }
+}
+
+await document.fonts.load("bold 140px 'Frank Ruhl Libre'").catch(() => {});
+buildCube();
+
+// ── Rotation engine ──────────────────────────────────────────────────
+let currentAnim = null;
+const queue = [];
+
+function queueRotation(axis, layer, angle, dur) {
+  queue.push({ axis, layer, angle, dur: dur ?? 200 });
+  if (!currentAnim) processQueue();
+}
+
+function processQueue() {
+  if (currentAnim || !queue.length) return;
+  const { axis, layer, angle, dur } = queue.shift();
+
+  const cubies = cubeGroup.children.filter(
+    m => m.isMesh && Math.round(m.position[axis]) === layer
+  );
+  if (!cubies.length) { processQueue(); return; }
+
+  const pivot = new THREE.Object3D();
+  cubeGroup.add(pivot);
+  cubies.forEach(m => pivot.attach(m));
+
+  const axisVec = new THREE.Vector3(axis==='x'?1:0, axis==='y'?1:0, axis==='z'?1:0);
+
+  currentAnim = { pivot, cubies, axisVec, angle, elapsed: 0, dur };
+}
+
+function tickAnim(dt) {
+  if (!currentAnim) return;
+  const a = currentAnim;
+  a.elapsed = Math.min(a.elapsed + dt, a.dur);
+  const t = a.elapsed / a.dur;
+  const e = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+  a.pivot.quaternion.setFromAxisAngle(a.axisVec, a.angle * e);
+
+  if (t >= 1) {
+    for (const m of a.cubies) {
+      cubeGroup.attach(m);
+      m.position.x = Math.round(m.position.x);
+      m.position.y = Math.round(m.position.y);
+      m.position.z = Math.round(m.position.z);
+      // snap quaternion (entries should be 0/±1 for 90° multiples)
+      const rm = new THREE.Matrix4().makeRotationFromQuaternion(m.quaternion);
+      const el = rm.elements;
+      for (let i = 0; i < 16; i++) el[i] = Math.round(el[i]);
+      m.quaternion.setFromRotationMatrix(rm);
+    }
+    cubeGroup.remove(a.pivot);
+    currentAnim = null;
+    processQueue();
+  }
+}
+
+// ── Click-to-rotate ──────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const ptrStart = new THREE.Vector2();
+let ptrTime = 0;
+
+renderer.domElement.addEventListener('pointerdown', ev => {
+  ptrStart.set(ev.clientX, ev.clientY);
+  ptrTime = performance.now();
+  if (controls.autoRotate) {
+    controls.autoRotate = false;
+    document.getElementById('autorotate-btn').textContent = '▶ Resume';
+  }
+});
+
+renderer.domElement.addEventListener('pointerup', ev => {
+  const dx = ev.clientX - ptrStart.x, dy = ev.clientY - ptrStart.y;
+  if (Math.sqrt(dx*dx+dy*dy) > 5 || performance.now()-ptrTime > 300) return;
+  if (currentAnim) return;
+
+  const mouse = new THREE.Vector2(
+    (ev.clientX/innerWidth)*2-1, -(ev.clientY/innerHeight)*2+1
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(cubeGroup.children.filter(c => c.isMesh));
+  if (!hits.length) return;
+
+  const hit = hits[0];
+  const normal = hit.face.normal.clone().applyQuaternion(hit.object.quaternion).round();
+
+  let axis, layer;
+  const ax = Math.abs(normal.x), ay = Math.abs(normal.y), az = Math.abs(normal.z);
+  if (ax >= ay && ax >= az) { axis = 'x'; layer = Math.round(hit.object.position.x); }
+  else if (ay >= ax && ay >= az) { axis = 'y'; layer = Math.round(hit.object.position.y); }
+  else { axis = 'z'; layer = Math.round(hit.object.position.z); }
+
+  let angle = (layer >= 0 ? 1 : -1) * Math.PI / 2;
+  if (ev.shiftKey) angle = -angle;
+  queueRotation(axis, layer, angle);
+});
+
+// ── Keyboard ─────────────────────────────────────────────────────────
+const MOVES = {
+  r: { axis:'x', layer: 1, s: 1 },
+  l: { axis:'x', layer:-1, s:-1 },
+  u: { axis:'y', layer: 1, s: 1 },
+  d: { axis:'y', layer:-1, s:-1 },
+  f: { axis:'z', layer: 1, s:-1 },
+  b: { axis:'z', layer:-1, s: 1 },
+};
+
+window.addEventListener('keydown', ev => {
+  if (document.getElementById('letter-panel').classList.contains('open')) return;
+  if (document.getElementById('key-dialog').classList.contains('open')) return;
+  const m = MOVES[ev.key.toLowerCase()];
+  if (!m) return;
+  ev.preventDefault();
+  let angle = m.s * Math.PI / 2;
+  if (ev.shiftKey) angle = -angle;
+  queueRotation(m.axis, m.layer, angle);
+});
+
+// ── Scramble ─────────────────────────────────────────────────────────
+function scramble(n = 20) {
+  const axes = ['x','y','z'], layers = [-1,1], angles = [Math.PI/2, -Math.PI/2];
+  for (let i = 0; i < n; i++) {
+    queueRotation(
+      axes[Math.random()*3|0],
+      layers[Math.random()*2|0],
+      angles[Math.random()*2|0],
+      80
+    );
+  }
+}
+
+// ── Letter panel ─────────────────────────────────────────────────────
+let dragSrcIdx = null;
+const panel = document.getElementById('letter-panel');
+const GROUPS = [
+  { id: 'chips-corners', start: 0,  count: 8  },
+  { id: 'chips-edges',   start: 8,  count: 12 },
+  { id: 'chips-faces',   start: 20, count: 6  },
+  { id: 'chips-center',  start: 26, count: 1  },
+];
+
+function renderPanel() {
+  for (const { id, start, count } of GROUPS) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let i = start; i < start + count; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'letter-chip';
+      chip.textContent = letters[i];
+      chip.draggable = true;
+
+      chip.addEventListener('dragstart', e => {
+        dragSrcIdx = i;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(i));
+        requestAnimationFrame(() => chip.classList.add('dragging'));
+      });
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('dragging');
+        dragSrcIdx = null;
+      });
+      chip.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragSrcIdx !== null && dragSrcIdx !== i) chip.classList.add('drag-over');
+      });
+      chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+      chip.addEventListener('drop', e => {
+        e.preventDefault();
+        chip.classList.remove('drag-over');
+        const src = parseInt(e.dataTransfer.getData('text/plain'));
+        if (!isNaN(src) && src !== i) {
+          [letters[src], letters[i]] = [letters[i], letters[src]];
+          buildCube();
+          updateHash();
+        }
+        renderPanel();
+      });
+
+      el.appendChild(chip);
+    }
+  }
+}
+
+document.getElementById('letters-btn').addEventListener('click', () => {
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) renderPanel();
+});
+document.getElementById('panel-close').addEventListener('click', () => {
+  panel.classList.remove('open');
+});
+document.getElementById('shuffle-btn').addEventListener('click', () => {
+  for (let i = letters.length-1; i > 0; i--) {
+    const j = Math.random()*(i+1)|0;
+    [letters[i], letters[j]] = [letters[j], letters[i]];
+  }
+  buildCube();
+  renderPanel();
+  updateHash();
+});
+document.getElementById('reset-btn').addEventListener('click', () => {
+  letters = [...DEFAULT_LETTERS];
+  buildCube();
+  renderPanel();
+  updateHash();
+});
+
+// ── Bottom buttons ───────────────────────────────────────────────────
+const autoBtn = document.getElementById('autorotate-btn');
+autoBtn.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  autoBtn.textContent = controls.autoRotate ? '⏸ Pause' : '▶ Resume';
+});
+document.getElementById('scramble-btn').addEventListener('click', () => scramble());
+
+// ── Cube key ──────────────────────────────────────────────────────────
+function toKey(ltrs) {
+  return GROUPS.map(({start, count}) => {
+    const seg = [];
+    for (let i = start; i < start + count; i++) seg.push(HEBREW_TO_EN[ltrs[i]]);
+    return seg.sort().join('');
+  }).join('-');
+}
+
+function canonicalize(key) {
+  return key.split('-').map(s => [...s].sort().join('')).join('-');
+}
+
+function parseKey(key) {
+  const parts = key.split('-');
+  if (parts.length !== 4) return null;
+  const sizes = [8, 12, 6, 1];
+  if (parts.some((p, i) => p.length !== sizes[i])) return null;
+  const all = parts.join('');
+  const seen = new Set(all);
+  if (seen.size !== 27) return null;
+  for (const c of all) if (!EN_TO_HEBREW[c]) return null;
+  const result = [];
+  for (const part of parts) for (const ch of part) result.push(EN_TO_HEBREW[ch]);
+  return result;
+}
+
+function applyKey(key) {
+  const parsed = parseKey(key);
+  if (!parsed) return false;
+  letters = parsed;
+  buildCube();
+  renderPanel();
+  return true;
+}
+
+function updateHash() {
+  const key = toKey(letters);
+  const hash = '#key=' + encodeURIComponent(key);
+  if (location.hash !== hash) history.pushState(null, '', hash);
+}
+
+function loadFromHash() {
+  if (!location.hash.startsWith('#key=')) return false;
+  const key = decodeURIComponent(location.hash.slice(5));
+  return applyKey(key);
+}
+
+// Apply key from URL on load, or set default hash
+if (location.hash.startsWith('#key=')) {
+  loadFromHash();
+} else {
+  const key = toKey(letters);
+  history.replaceState(null, '', '#key=' + encodeURIComponent(key));
+}
+
+// Browser back/forward
+window.addEventListener('popstate', loadFromHash);
+
+// ── Key dialog ────────────────────────────────────────────────────────
+const keyDialog = document.getElementById('key-dialog');
+const keyOverlay = document.getElementById('key-overlay');
+const keyDisplay = document.getElementById('key-display');
+const keyInput = document.getElementById('key-input');
+const keyError = document.getElementById('key-error');
+
+function openKeyDialog() {
+  keyDisplay.value = toKey(letters);
+  keyInput.value = '';
+  keyError.classList.remove('show');
+  keyDialog.classList.add('open');
+  keyOverlay.classList.add('open');
+}
+
+function closeKeyDialog() {
+  keyDialog.classList.remove('open');
+  keyOverlay.classList.remove('open');
+}
+
+document.getElementById('key-btn').addEventListener('click', openKeyDialog);
+document.getElementById('key-close').addEventListener('click', closeKeyDialog);
+keyOverlay.addEventListener('click', closeKeyDialog);
+
+document.getElementById('key-copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(keyDisplay.value).then(() => {
+    const btn = document.getElementById('key-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+});
+
+document.getElementById('key-canonical').addEventListener('click', () => {
+  keyDisplay.value = canonicalize(keyDisplay.value);
+});
+
+document.getElementById('key-load').addEventListener('click', () => {
+  const key = keyInput.value.trim().toUpperCase();
+  if (!key) return;
+  if (applyKey(key)) {
+    updateHash();
+    keyDisplay.value = toKey(letters);
+    keyError.classList.remove('show');
+    closeKeyDialog();
+  } else {
+    keyError.classList.add('show');
+  }
+});
+
+// Close dialog on Escape
+window.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && keyDialog.classList.contains('open')) {
+    closeKeyDialog();
+    ev.stopPropagation();
+  }
+}, true);
+
+// ── Starfield ────────────────────────────────────────────────────────
+{
+  const n = 300, pos = new Float32Array(n*3);
+  for (let i = 0; i < n*3; i++) pos[i] = (Math.random()-0.5)*60;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0x5566bb, size:0.06, transparent:true, opacity:0.6 })));
+}
+
+// ── Resize ───────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Render loop ──────────────────────────────────────────────────────
+let lastT = performance.now();
+(function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  tickAnim(now - lastT);
+  lastT = now;
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
