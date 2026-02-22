@@ -124,6 +124,7 @@
   <div id="legend">
     <b>Keyboard</b><br>
     <kbd>R</kbd> <kbd>L</kbd> <kbd>U</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>B</kbd> rotate faces<br>
+    <kbd>M</kbd> <kbd>E</kbd> <kbd>S</kbd> rotate middle layers<br>
     <kbd>Shift</kbd>+key = reverse
   </div>
 </div>
@@ -170,8 +171,13 @@
     <button class="key-btn" id="key-copy">Copy</button>
     <button class="key-btn" id="key-canonical">Canonical</button>
   </div>
+  <div class="key-label">State key (includes rotations)</div>
+  <input type="text" class="key-field" id="state-display" readonly>
+  <div class="key-actions">
+    <button class="key-btn" id="state-copy">Copy</button>
+  </div>
   <div class="key-label">Load a key</div>
-  <input type="text" class="key-field" id="key-input" placeholder="e.g. ABCDEFGH-IJKLMNOPQRST-UVWXYZ-#">
+  <input type="text" class="key-field" id="key-input" placeholder="Group (A-B-C-D) or state (A.B.C.D)">
   <div class="key-actions">
     <button class="key-btn" id="key-load">Load</button>
   </div>
@@ -302,6 +308,8 @@ for (let x = -1; x <= 1; x++)
     for (let z = -1; z <= 1; z++)
       POSITIONS.push({ x, y, z, outer: (x?1:0)+(y?1:0)+(z?1:0) });
 POSITIONS.sort((a, b) => b.outer - a.outer);
+const POS_LOOKUP = new Map();
+POSITIONS.forEach((p, i) => POS_LOOKUP.set(`${p.x},${p.y},${p.z}`, i));
 
 let letters = [...DEFAULT_LETTERS];
 
@@ -371,6 +379,7 @@ function buildCube() {
     });
     const mesh = new THREE.Mesh(GEO, mats);
     mesh.position.set(x, y, z);
+    mesh.userData.letter = letter;
     cubeGroup.add(mesh);
   }
 }
@@ -479,6 +488,9 @@ const MOVES = {
   d: { axis:'y', layer:-1, s:-1 },
   f: { axis:'z', layer: 1, s:-1 },
   b: { axis:'z', layer:-1, s: 1 },
+  m: { axis:'x', layer: 0, s:-1 },
+  e: { axis:'y', layer: 0, s:-1 },
+  s: { axis:'z', layer: 0, s:-1 },
 };
 
 window.addEventListener('keydown', ev => {
@@ -631,14 +643,60 @@ function updateHash() {
   if (location.hash !== hash) history.pushState(null, '', hash);
 }
 
+function readCubeState() {
+  const state = new Array(27);
+  for (const child of cubeGroup.children) {
+    if (!child.isMesh || !child.userData.letter) continue;
+    const k = `${Math.round(child.position.x)},${Math.round(child.position.y)},${Math.round(child.position.z)}`;
+    const idx = POS_LOOKUP.get(k);
+    if (idx !== undefined) state[idx] = child.userData.letter;
+  }
+  return state;
+}
+
+function toStateKey() {
+  const state = readCubeState();
+  return GROUPS.map(({start, count}) => {
+    const seg = [];
+    for (let i = start; i < start + count; i++) seg.push(HEBREW_TO_EN[state[i]]);
+    return seg.join('');
+  }).join('.');
+}
+
+function parseStateKey(key) {
+  const parts = key.split('.');
+  if (parts.length !== 4) return null;
+  const sizes = [8, 12, 6, 1];
+  if (parts.some((p, i) => p.length !== sizes[i])) return null;
+  const all = parts.join('');
+  const seen = new Set(all);
+  if (seen.size !== 27) return null;
+  for (const c of all) if (!EN_TO_HEBREW[c]) return null;
+  const result = [];
+  for (const part of parts) for (const ch of part) result.push(EN_TO_HEBREW[ch]);
+  return result;
+}
+
 function loadFromHash() {
-  if (!location.hash.startsWith('#key=')) return false;
-  const key = decodeURIComponent(location.hash.slice(5));
-  return applyKey(key);
+  const hash = location.hash;
+  if (hash.startsWith('#state=')) {
+    const key = decodeURIComponent(hash.slice(7));
+    const parsed = parseStateKey(key);
+    if (!parsed) return false;
+    letters = parsed;
+    buildCube();
+    renderPanel();
+    return true;
+  }
+  if (hash.startsWith('#key=')) {
+    const key = decodeURIComponent(hash.slice(5));
+    return applyKey(key);
+  }
+  return false;
 }
 
 // Apply key from URL on load, or set default hash
-if (location.hash.startsWith('#key=')) {
+if (location.hash.startsWith('#key=') || location.hash.startsWith('#state=')) {
   loadFromHash();
 } else {
   const key = toKey(letters);
@@ -652,11 +710,13 @@ window.addEventListener('popstate', loadFromHash);
 const keyDialog = document.getElementById('key-dialog');
 const keyOverlay = document.getElementById('key-overlay');
 const keyDisplay = document.getElementById('key-display');
+const stateDisplay = document.getElementById('state-display');
 const keyInput = document.getElementById('key-input');
 const keyError = document.getElementById('key-error');
 
 function openKeyDialog() {
   keyDisplay.value = toKey(letters);
+  stateDisplay.value = toStateKey();
   keyInput.value = '';
   keyError.classList.remove('show');
   keyDialog.classList.add('open');
@@ -684,12 +744,26 @@ document.getElementById('key-canonical').addEventListener('click', () => {
   keyDisplay.value = canonicalize(keyDisplay.value);
 });
 
+document.getElementById('state-copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(stateDisplay.value).then(() => {
+    const btn = document.getElementById('state-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+});
+
 document.getElementById('key-load').addEventListener('click', () => {
-  const key = keyInput.value.trim().toUpperCase();
-  if (!key) return;
-  if (applyKey(key)) {
+  const raw = keyInput.value.trim().toUpperCase();
+  if (!raw) return;
+  const isState = raw.includes('.');
+  const parsed = isState ? parseStateKey(raw) : parseKey(raw);
+  if (parsed) {
+    letters = parsed;
+    buildCube();
+    renderPanel();
     updateHash();
     keyDisplay.value = toKey(letters);
+    stateDisplay.value = toStateKey();
     keyError.classList.remove('show');
     closeKeyDialog();
   } else {
