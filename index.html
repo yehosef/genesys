@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hebrew Letter Cube</title>
+<title>GeneSys - Hebrew Letter Cube</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,6 +27,21 @@
   #legend b { color: #fff; }
   kbd { background: rgba(255,255,255,0.12); border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 10px; }
 
+  #letter-sequence {
+    position: absolute; bottom: 52px; right: 18px;
+    direction: rtl; font-family: 'Frank Ruhl Libre', serif;
+    font-size: 22px; color: rgba(255,255,255,0.8);
+    letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,170,0,0.5);
+    pointer-events: none; max-width: 80vw; word-break: break-all;
+  }
+  #letter-sequence span {
+    display: inline-block;
+    animation: seqFadeIn 0.4s ease-out;
+  }
+  @keyframes seqFadeIn {
+    from { opacity: 0; color: #ffaa00; transform: scale(1.4); }
+    to   { opacity: 1; color: rgba(255,255,255,0.8); transform: scale(1); }
+  }
   #bottom-bar {
     position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 10px; align-items: center;
@@ -69,6 +84,7 @@
   .letter-chip[draggable] { cursor: grab; }
   .letter-chip.dragging { opacity: 0.3; transform: scale(0.9); }
   .letter-chip.drag-over { background: rgba(80,140,255,0.4); border-color: rgba(80,140,255,0.9); transform: scale(1.15); box-shadow: 0 0 14px rgba(80,140,255,0.4); }
+  .letter-chip.active { background: rgba(80,140,255,0.35); border-color: rgba(80,140,255,0.8); box-shadow: 0 0 14px rgba(80,140,255,0.5); }
 
   .panel-note { color: rgba(255,255,255,0.3); font-size: 10px; margin: 12px 0 8px; font-style: italic; }
   .panel-actions { display: flex; gap: 8px; }
@@ -112,20 +128,220 @@
   .key-label { color: rgba(255,255,255,0.5); font-size: 11px; margin: 12px 0 6px; }
   .key-error { color: #ff6b6b; font-size: 11px; margin-top: 6px; display: none; }
   .key-error.show { display: block; }
+
+  /* ── Pipeline bar ─────────────────────────────────────────── */
+  #pipeline-bar {
+    position: absolute; top: 68px; left: 0; right: 0;
+    background: rgba(10,10,30,0.88); backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    z-index: 90; display: none; flex-direction: column;
+  }
+  #pipeline-bar.open { display: flex; }
+  .pipeline-stages {
+    display: flex; align-items: center; gap: 4px;
+    padding: 8px 16px; flex-wrap: wrap;
+  }
+  .pipeline-arrow { color: rgba(255,255,255,0.15); font-size: 14px; flex-shrink: 0; }
+  .pipeline-pill {
+    position: relative; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+    padding: 5px 12px; cursor: pointer; text-align: center;
+    transition: all 0.2s; min-width: 72px; flex-shrink: 0;
+  }
+  .pipeline-pill:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+  .pipeline-pill.active { background: rgba(80,140,255,0.2); border-color: rgba(80,140,255,0.5); }
+  .pipeline-pill.dimmed { opacity: 0.4; cursor: default; }
+  .pipeline-pill.dimmed:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+  .pill-icon { font-size: 15px; display: block; line-height: 1.2; }
+  .pill-label { color: rgba(255,255,255,0.8); font-size: 10px; font-weight: 600; margin-top: 1px; display: block; }
+  .pill-sub { color: rgba(255,255,255,0.35); font-size: 9px; margin-top: 1px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  .pipeline-share {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer;
+    color: rgba(255,255,255,0.5); font-size: 11px; transition: all 0.2s;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .pipeline-share:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  .pipe-ctrl {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7); height: 30px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; font-family: inherit; padding: 0 8px; flex-shrink: 0;
+  }
+  .pipe-ctrl:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+  /* ── Stage dropdowns ───────────────────────────────────────── */
+  .stage-dropdown {
+    position: absolute; top: 100%; left: 0;
+    background: rgba(10,10,30,0.96); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+    padding: 10px 12px; z-index: 200; min-width: 200px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6); display: none;
+    margin-top: 4px;
+  }
+  .stage-dropdown.open { display: block; }
+  .stage-dropdown .group-title { color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px; }
+  .stage-dropdown textarea {
+    width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: 'Frank Ruhl Libre', serif; font-size: 18px;
+    padding: 8px 10px; border-radius: 6px; resize: vertical; min-height: 80px;
+    direction: rtl; line-height: 1.6;
+  }
+  .stage-dropdown textarea:focus { outline: none; border-color: rgba(80,140,255,0.6); }
+  .stage-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .stage-preset {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6); padding: 3px 9px; border-radius: 5px;
+    cursor: pointer; font-size: 11px; font-family: inherit; transition: all 0.2s;
+  }
+  .stage-preset:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .stage-preset.active { background: rgba(80,140,255,0.3); border-color: rgba(80,140,255,0.6); color: #fff; }
+  .stage-soon { color: rgba(255,255,255,0.25); font-size: 11px; font-style: italic; text-align: center; padding: 10px 0; }
+  .stage-letter-count { color: rgba(255,255,255,0.25); font-size: 9px; margin-top: 3px; }
+
+  /* ── Output panel (right side) ─────────────────────────────── */
+  #output-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 340px;
+    background: rgba(10,10,30,0.94); backdrop-filter: blur(12px);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    transform: translateX(100%); transition: transform 0.3s ease;
+    z-index: 100; display: flex; flex-direction: column;
+  }
+  #output-panel.open { transform: translateX(0); }
+  .output-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .output-section { padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .output-text {
+    direction: rtl; font-family: 'Frank Ruhl Libre', serif;
+    font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.4;
+    max-height: 52px; overflow-y: auto; word-break: break-all;
+    padding: 4px 6px; background: rgba(255,255,255,0.03); border-radius: 4px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .amino-text {
+    font-family: 'Courier New', monospace; font-size: 14px;
+    color: rgba(120,200,255,0.7); line-height: 1.5; letter-spacing: 1.5px;
+    flex: 1; overflow-y: auto; word-break: break-all;
+    padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .amino-text .stop { color: #ff6b6b; }
+
+  /* ── Horizontal step log ──────────────────────────────────── */
+  .step-log {
+    display: flex; flex-direction: row;
+    overflow-x: auto; overflow-y: hidden;
+    gap: 1px; padding: 6px 4px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+    min-height: 68px;
+  }
+  .step-cell {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 22px; padding: 2px 1px; border-radius: 3px;
+    flex-shrink: 0; cursor: default;
+  }
+  .step-cell:hover { background: rgba(255,255,255,0.06); }
+  .step-cell.changed { background: rgba(255,170,0,0.08); }
+  .step-cell.changed:hover { background: rgba(255,170,0,0.15); }
+  .step-cell .s-in {
+    font-family: 'Frank Ruhl Libre', serif; font-size: 13px;
+    color: rgba(255,255,255,0.4); line-height: 1.2;
+  }
+  .step-cell .s-dg {
+    font-size: 8px; color: rgba(255,170,0,0.6);
+    font-family: 'Courier New', monospace; line-height: 1;
+  }
+  .step-cell .s-out {
+    font-family: 'Frank Ruhl Libre', serif; font-size: 13px;
+    color: #6be; line-height: 1.2;
+  }
+  .step-cell.same .s-in { color: rgba(255,255,255,0.2); }
+  .step-cell.same .s-out { color: rgba(255,255,255,0.2); }
+  .step-cell.same .s-dg { color: rgba(255,170,0,0.25); }
+
+  /* Mapping table in dropdown */
+  .mapping-grid {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px;
+    font-size: 10px; text-align: center;
+  }
+  .mapping-cell {
+    padding: 2px; border-radius: 3px; background: rgba(255,255,255,0.04);
+  }
+  .mapping-cell .mc-heb { font-family: 'Frank Ruhl Libre', serif; font-size: 12px; color: rgba(255,255,255,0.6); }
+  .mapping-cell .mc-aa { font-family: 'Courier New', monospace; font-size: 10px; color: #6be; }
+
+  /* ── Mapping dialog (full modal) ──────────────────────────── */
+  #mapping-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 199; display: none;
+  }
+  #mapping-overlay.open { display: block; }
+  #mapping-dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,30,0.96); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 18px 22px; z-index: 200; display: none;
+    min-width: 400px; max-width: 600px; width: 90vw;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    max-height: 85vh; overflow-y: auto;
+  }
+  #mapping-dialog.open { display: block; }
+  .md-grid {
+    display: grid; grid-template-columns: auto repeat(11, 1fr); gap: 5px;
+    margin: 10px 0; align-items: center;
+  }
+  .md-row-label {
+    color: rgba(255,255,255,0.25); font-size: 9px; letter-spacing: 0.5px;
+    writing-mode: horizontal-tb; text-align: right; padding-right: 4px;
+  }
+  .md-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 5px 2px; background: rgba(255,255,255,0.04); border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06); transition: all 0.15s;
+    user-select: none;
+  }
+  .md-cell:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+  .md-cell.drag-over { background: rgba(80,140,255,0.2); border-color: rgba(80,140,255,0.6); }
+  .md-heb { font-family: 'Frank Ruhl Libre', serif; font-size: 20px; color: #fff; line-height: 1.2; opacity: 0.5; }
+  .md-amino {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12);
+    color: #6be; font-size: 13px; font-family: 'Courier New', monospace; font-weight: bold;
+    border-radius: 4px; padding: 2px 4px; min-width: 28px; text-align: center;
+    cursor: pointer;
+  }
+  .md-amino.dragging { opacity: 0.3; }
+  .md-name { font-size: 8px; color: rgba(255,255,255,0.3); line-height: 1; margin-top: 1px; }
+  .md-section-title {
+    grid-column: 1 / -1; color: rgba(255,255,255,0.3);
+    font-size: 10px; letter-spacing: 1px; margin-top: 4px; display: none;
+  }
+
+  /* ── Move vocabulary ──────────────────────────────────────── */
+  .move-vocab {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;
+    font-size: 10px; margin-top: 4px;
+  }
+  .mv-row {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 4px; background: rgba(255,255,255,0.03); border-radius: 3px;
+  }
+  .mv-digit { color: #ffaa00; font-family: 'Courier New', monospace; font-weight: bold; min-width: 10px; }
+  .mv-desc { color: rgba(255,255,255,0.45); font-size: 9px; }
 </style>
 </head>
 <body>
 
 <div id="hud">
   <div id="title">
-    אלפבית
-    <span>Drag to orbit · Click face to rotate · Shift = reverse</span>
+    GeneSys
+    <span>Drag to orbit · Click face to rotate · Shift+click = highlight</span>
   </div>
   <div id="legend">
-    <b>Keyboard</b><br>
-    <kbd>R</kbd> <kbd>L</kbd> <kbd>U</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>B</kbd> rotate faces<br>
-    <kbd>M</kbd> <kbd>E</kbd> <kbd>S</kbd> rotate middle layers<br>
-    <kbd>Shift</kbd>+key = reverse
+    <b>Layers</b><br>
+    <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> x · <kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> y · <kbd>7</kbd><kbd>8</kbd><kbd>9</kbd> z<br>
+    <b>Cube</b><br>
+    <kbd>⌘</kbd>+<kbd>1</kbd><kbd>2</kbd> x · <kbd>3</kbd><kbd>4</kbd> y · <kbd>5</kbd><kbd>6</kbd> z<br>
+    <kbd>Shift</kbd> = reverse · <kbd>Shift</kbd>+click = highlight
   </div>
 </div>
 
@@ -159,6 +375,24 @@
   </div>
 </div>
 
+<div id="mapping-overlay"></div>
+<div id="mapping-dialog">
+  <div class="key-title">
+    <span>Amino Acid Mapping</span>
+    <button class="panel-close" id="mapping-close">✕</button>
+  </div>
+  <div style="color:rgba(255,255,255,0.3);font-size:10px;margin:4px 0">Click amino acid to cycle · Drag to swap · Finals (ךםןףץ) follow base letter</div>
+  <div class="md-grid" id="md-grid"></div>
+  <div class="key-label" style="margin-top:8px">Mapping key (22 chars, Hebrew order)</div>
+  <input type="text" class="key-field" id="amino-key-field" style="font-family:'Courier New',monospace;letter-spacing:2px;text-align:center">
+  <div class="key-actions">
+    <button class="key-btn" id="amino-key-copy">Copy</button>
+    <button class="key-btn" id="amino-key-apply">Apply</button>
+    <button class="key-btn" id="mapping-default">Reset to Default</button>
+  </div>
+  <div class="key-error" id="amino-key-error" style="display:none">Invalid</div>
+</div>
+
 <div id="key-overlay"></div>
 <div id="key-dialog">
   <div class="key-title">
@@ -184,10 +418,126 @@
   <div class="key-error" id="key-error">Invalid key: must be 4 groups (8-12-6-1) of unique letters A-Z + #</div>
 </div>
 
+<div id="pipeline-bar">
+  <div class="pipeline-stages">
+    <div class="pipeline-pill" data-stage="source">
+      <span class="pill-icon">📜</span>
+      <span class="pill-label">Source</span>
+      <span class="pill-sub" id="pill-sub-source">Mezuzah</span>
+      <div class="stage-dropdown" id="dd-source">
+        <div class="group-title">SOURCE TEXT</div>
+        <div class="stage-presets" id="src-presets">
+          <button class="stage-preset active" data-src-preset="mezuzah">Mezuzah</button>
+          <button class="stage-preset" data-src-preset="genesis">Genesis 1:1</button>
+          <button class="stage-preset" data-src-preset="custom">Custom</button>
+        </div>
+        <textarea id="source-textarea" rows="3" placeholder="Hebrew text…"></textarea>
+        <div class="stage-letter-count" id="source-count">713 letters</div>
+      </div>
+    </div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-pill dimmed" data-stage="transform">
+      <span class="pill-icon">✡</span>
+      <span class="pill-label">Transform</span>
+      <span class="pill-sub">soon</span>
+      <div class="stage-dropdown" id="dd-transform">
+        <div class="stage-soon">Milui · Atbash · Albam · Avgad<br>Coming soon</div>
+      </div>
+    </div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-pill" data-stage="cube">
+      <span class="pill-icon">🎲</span>
+      <span class="pill-label">Cube</span>
+      <span class="pill-sub" id="pill-sub-cube">Default</span>
+      <div class="stage-dropdown" id="dd-cube">
+        <div class="group-title">LETTER ASSIGNMENT</div>
+        <div class="stage-presets">
+          <button class="stage-preset" id="cube-open-panel">Edit Letters</button>
+          <button class="stage-preset" id="cube-open-key">Import Key</button>
+        </div>
+      </div>
+    </div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-pill" data-stage="rotations">
+      <span class="pill-icon">🔄</span>
+      <span class="pill-label">Rotations</span>
+      <span class="pill-sub" id="pill-sub-rot">π digits</span>
+      <div class="stage-dropdown" id="dd-rotations">
+        <div class="group-title">ROTATION SOURCE</div>
+        <div class="stage-presets" id="rot-presets">
+          <button class="stage-preset active" data-rot="pi">π</button>
+          <button class="stage-preset" data-rot="e">e</button>
+          <button class="stage-preset" data-rot="phi">φ</button>
+          <button class="stage-preset" data-rot="fib">Fib</button>
+          <button class="stage-preset" data-rot="custom">123…</button>
+          <button class="stage-preset" data-rot="hebrew">עברית</button>
+        </div>
+        <div id="rot-custom-area" style="display:none;margin-top:6px">
+          <input type="text" class="key-field" id="rot-custom-input" placeholder="Digits 1-9 (e.g. 314159265)">
+          <button class="key-btn" id="rot-custom-set" style="margin-top:4px;width:100%">Set</button>
+        </div>
+        <div id="rot-hebrew-area" style="display:none;margin-top:6px">
+          <input type="text" class="key-field" id="rot-hebrew-input" placeholder="הקלד טקסט בעברית" dir="rtl" style="font-family:'Frank Ruhl Libre',serif">
+          <button class="key-btn" id="rot-hebrew-set" style="margin-top:4px;width:100%">Set</button>
+        </div>
+        <div class="group-title" style="margin-top:8px">MOVE MODE</div>
+        <div class="stage-presets" id="move-mode-presets">
+          <button class="stage-preset active" data-mmode="layers">Layers</button>
+          <button class="stage-preset" data-mmode="cube">Whole Cube</button>
+        </div>
+        <div class="group-title" style="margin-top:6px">MOVE VOCABULARY</div>
+        <div class="move-vocab" id="move-vocab"></div>
+      </div>
+    </div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-pill" data-stage="mapping">
+      <span class="pill-icon">🧬</span>
+      <span class="pill-label">Mapping</span>
+      <span class="pill-sub" id="pill-sub-map">Default</span>
+    </div>
+    <button class="pipe-ctrl" id="pipe-reset" title="Reset" style="margin-left:8px;width:auto;padding:0 10px;font-size:11px">↺ Reset</button>
+    <button class="pipe-ctrl" id="pipe-run-all" title="Run" style="font-weight:bold;width:auto;padding:0 10px">▶ Run</button>
+    <span id="pipe-counter" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:4px">Letter 0 / 0</span>
+    <button class="pipeline-share" id="pipe-share" title="Copy recipe URL">🔗 Share</button>
+  </div>
+  <!-- hidden elements kept for JS references -->
+  <div style="display:none">
+    <button id="pipe-play">▶</button>
+    <button id="pipe-back">⏪</button>
+    <button id="pipe-fwd">⏩</button>
+    <input type="range" id="pipe-speed" min="50" max="500" value="200" step="25">
+    <span id="pipe-speed-val">200ms</span>
+    <input type="checkbox" id="pipe-flash" checked>
+  </div>
+</div>
+
+<div id="output-panel">
+  <div class="panel-header">
+    <span>Output</span>
+    <button class="panel-close" id="output-close">✕</button>
+  </div>
+  <div class="output-body">
+    <div class="output-section">
+      <div class="group-title">Step Log · <span style="color:rgba(255,255,255,0.25)">input → [digit] → output</span></div>
+      <div class="step-log" id="step-log"></div>
+    </div>
+    <div class="output-section">
+      <div class="group-title">Hebrew Output</div>
+      <div class="output-text" id="output-result"></div>
+    </div>
+    <div class="output-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="group-title">Amino Acids</div>
+      <div class="amino-text" id="output-amino">—</div>
+    </div>
+  </div>
+</div>
+
+<div id="letter-sequence"></div>
 <div id="bottom-bar">
   <button class="bar-btn" id="letters-btn">✏ Letters</button>
   <button class="bar-btn" id="key-btn">🔑 Key</button>
   <button class="bar-btn" id="scramble-btn">🎲 Scramble</button>
+  <button class="bar-btn" id="pipeline-btn">⚗ Pipeline</button>
   <button class="bar-btn" id="autorotate-btn">⏸ Pause</button>
 </div>
 
@@ -317,6 +667,55 @@ let letters = [...DEFAULT_LETTERS];
 const texCache = new Map();
 const INNER_MAT = new THREE.MeshLambertMaterial({ color: 0x111116 });
 
+// ── Highlight / glow ──────────────────────────────────────────────────
+let highlightedIdx = null;
+let glowMeshRef = null;
+
+function applyGlow(mesh) {
+  if (!mesh || !Array.isArray(mesh.material)) return;
+  mesh.material.forEach(m => {
+    if (m !== INNER_MAT) {
+      m.emissive = new THREE.Color(0x3388ff);
+      m.emissiveIntensity = 0.5;
+    }
+  });
+}
+
+function clearGlow(mesh) {
+  if (!mesh || !Array.isArray(mesh.material)) return;
+  mesh.material.forEach(m => {
+    if (m !== INNER_MAT) {
+      m.emissive = new THREE.Color(0x000000);
+      m.emissiveIntensity = 0;
+    }
+  });
+}
+
+function setHighlight(idx) {
+  if (glowMeshRef) { clearGlow(glowMeshRef); glowMeshRef = null; }
+  highlightedIdx = (highlightedIdx === idx) ? null : idx;
+  if (highlightedIdx !== null) {
+    const letter = letters[highlightedIdx];
+    glowMeshRef = cubeGroup.children.find(m => m.isMesh && m.userData.letter === letter) || null;
+    applyGlow(glowMeshRef);
+  }
+  renderPanel();
+}
+
+function clearHighlight() {
+  if (glowMeshRef) { clearGlow(glowMeshRef); glowMeshRef = null; }
+  highlightedIdx = null;
+}
+
+function reapplyHighlight() {
+  glowMeshRef = null;
+  if (highlightedIdx !== null) {
+    const letter = letters[highlightedIdx];
+    glowMeshRef = cubeGroup.children.find(m => m.isMesh && m.userData.letter === letter) || null;
+    applyGlow(glowMeshRef);
+  }
+}
+
 function faceTex(letter, rotation = 0) {
   const key = letter + '_' + rotation;
   if (texCache.has(key)) return texCache.get(key);
@@ -361,6 +760,7 @@ scene.add(cubeGroup);
 const GEO = new THREE.BoxGeometry(0.92, 0.92, 0.92);
 
 function buildCube() {
+  glowMeshRef = null;
   while (cubeGroup.children.length) {
     const ch = cubeGroup.children[0];
     cubeGroup.remove(ch);
@@ -382,6 +782,7 @@ function buildCube() {
     mesh.userData.letter = letter;
     cubeGroup.add(mesh);
   }
+  reapplyHighlight();
 }
 
 await document.fonts.load("bold 140px 'Frank Ruhl Libre'").catch(() => {});
@@ -396,14 +797,28 @@ function queueRotation(axis, layer, angle, dur) {
   if (!currentAnim) processQueue();
 }
 
+let glowOldPos = null;
+let yellowFlashMesh = null;
+let yellowFlashStart = 0;
+
 function processQueue() {
   if (currentAnim || !queue.length) return;
   const { axis, layer, angle, dur } = queue.shift();
 
   const cubies = cubeGroup.children.filter(
-    m => m.isMesh && Math.round(m.position[axis]) === layer
+    m => m.isMesh && (layer === null || Math.round(m.position[axis]) === layer)
   );
   if (!cubies.length) { processQueue(); return; }
+
+  // Remember highlighted piece's position before rotation
+  glowOldPos = null;
+  if (glowMeshRef && cubies.includes(glowMeshRef)) {
+    glowOldPos = {
+      x: Math.round(glowMeshRef.position.x),
+      y: Math.round(glowMeshRef.position.y),
+      z: Math.round(glowMeshRef.position.z)
+    };
+  }
 
   const pivot = new THREE.Object3D();
   cubeGroup.add(pivot);
@@ -435,6 +850,38 @@ function tickAnim(dt) {
       m.quaternion.setFromRotationMatrix(rm);
     }
     cubeGroup.remove(a.pivot);
+
+    // Flash yellow on the piece that replaced the highlighted one (skip during pipeline — handled separately)
+    if (glowOldPos && glowMeshRef && !pipeBar.classList.contains('open')) {
+      const np = glowMeshRef.position;
+      if (Math.round(np.x) !== glowOldPos.x || Math.round(np.y) !== glowOldPos.y || Math.round(np.z) !== glowOldPos.z) {
+        const replacer = cubeGroup.children.find(m =>
+          m.isMesh && m !== glowMeshRef &&
+          Math.round(m.position.x) === glowOldPos.x &&
+          Math.round(m.position.y) === glowOldPos.y &&
+          Math.round(m.position.z) === glowOldPos.z
+        );
+        if (replacer) {
+          // Clear previous flash if still running
+          if (yellowFlashMesh) clearGlow(yellowFlashMesh);
+          yellowFlashMesh = replacer;
+          yellowFlashStart = performance.now();
+          replacer.material.forEach(m => {
+            if (m !== INNER_MAT) {
+              m.emissive = new THREE.Color(0xffaa00);
+              m.emissiveIntensity = 0.6;
+            }
+          });
+          // Append letter to sequence (disabled)
+          // const seqEl = document.getElementById('letter-sequence');
+          // const span = document.createElement('span');
+          // span.textContent = replacer.userData.letter;
+          // seqEl.appendChild(span);
+        }
+      }
+      glowOldPos = null;
+    }
+
     currentAnim = null;
     processQueue();
   }
@@ -448,10 +895,7 @@ let ptrTime = 0;
 renderer.domElement.addEventListener('pointerdown', ev => {
   ptrStart.set(ev.clientX, ev.clientY);
   ptrTime = performance.now();
-  if (controls.autoRotate) {
-    controls.autoRotate = false;
-    document.getElementById('autorotate-btn').textContent = '▶ Resume';
-  }
+  if (controls.autoRotate) stopIdle();
 });
 
 renderer.domElement.addEventListener('pointerup', ev => {
@@ -467,6 +911,17 @@ renderer.domElement.addEventListener('pointerup', ev => {
   if (!hits.length) return;
 
   const hit = hits[0];
+
+  // Shift+click = highlight/glow the clicked piece (disabled during pipeline)
+  if (ev.shiftKey) {
+    if (document.getElementById('pipeline-bar').classList.contains('open')) return;
+    const mesh = hit.object;
+    const letter = mesh.userData.letter;
+    const idx = letters.indexOf(letter);
+    if (idx !== -1) setHighlight(idx);
+    return;
+  }
+
   const normal = hit.face.normal.clone().applyQuaternion(hit.object.quaternion).round();
 
   let axis, layer;
@@ -476,32 +931,61 @@ renderer.domElement.addEventListener('pointerup', ev => {
   else { axis = 'z'; layer = Math.round(hit.object.position.z); }
 
   let angle = (layer >= 0 ? 1 : -1) * Math.PI / 2;
-  if (ev.shiftKey) angle = -angle;
   queueRotation(axis, layer, angle);
 });
 
 // ── Keyboard ─────────────────────────────────────────────────────────
-const MOVES = {
-  r: { axis:'x', layer: 1, s: 1 },
-  l: { axis:'x', layer:-1, s:-1 },
-  u: { axis:'y', layer: 1, s: 1 },
-  d: { axis:'y', layer:-1, s:-1 },
-  f: { axis:'z', layer: 1, s:-1 },
-  b: { axis:'z', layer:-1, s: 1 },
-  m: { axis:'x', layer: 0, s:-1 },
-  e: { axis:'y', layer: 0, s:-1 },
-  s: { axis:'z', layer: 0, s:-1 },
+// Number keys: 1-3 = x layers (R/M/L), 4-6 = y (U/E/D), 7-9 = z (F/S/B)
+const NUM_MOVES = {
+  '1': { axis:'x', layer: 1, s: 1 },
+  '2': { axis:'x', layer: 0, s:-1 },
+  '3': { axis:'x', layer:-1, s:-1 },
+  '4': { axis:'y', layer: 1, s: 1 },
+  '5': { axis:'y', layer: 0, s:-1 },
+  '6': { axis:'y', layer:-1, s:-1 },
+  '7': { axis:'z', layer: 1, s:-1 },
+  '8': { axis:'z', layer: 0, s:-1 },
+  '9': { axis:'z', layer:-1, s: 1 },
+};
+
+// Ctrl/Cmd + 1-6 = whole cube rotation: 1/2 x±, 3/4 y±, 5/6 z±
+const CUBE_ROT = {
+  '1': { axis:'x', s: 1 },
+  '2': { axis:'x', s:-1 },
+  '3': { axis:'y', s: 1 },
+  '4': { axis:'y', s:-1 },
+  '5': { axis:'z', s: 1 },
+  '6': { axis:'z', s:-1 },
 };
 
 window.addEventListener('keydown', ev => {
+  if (document.activeElement && document.activeElement.matches('input, textarea')) return;
   if (document.getElementById('letter-panel').classList.contains('open')) return;
   if (document.getElementById('key-dialog').classList.contains('open')) return;
-  const m = MOVES[ev.key.toLowerCase()];
-  if (!m) return;
-  ev.preventDefault();
-  let angle = m.s * Math.PI / 2;
-  if (ev.shiftKey) angle = -angle;
-  queueRotation(m.axis, m.layer, angle);
+
+  const key = ev.key;
+
+  // Ctrl/Cmd + 1/2/3 = cube rotation
+  if ((ev.ctrlKey || ev.metaKey) && CUBE_ROT[key]) {
+    ev.preventDefault();
+    const cr = CUBE_ROT[key];
+    let angle = cr.s * Math.PI / 2;
+    if (ev.shiftKey) angle = -angle;
+    queueRotation(cr.axis, null, angle);
+    return;
+  }
+
+  // Number keys = layer rotation
+  const nm = NUM_MOVES[key];
+  if (nm) {
+    ev.preventDefault();
+    let angle = nm.s * Math.PI / 2;
+    if (ev.shiftKey) angle = -angle;
+    queueRotation(nm.axis, nm.layer, angle);
+    return;
+  }
+
+  // Letter keys removed — use number keys only
 });
 
 // ── Scramble ─────────────────────────────────────────────────────────
@@ -533,7 +1017,7 @@ function renderPanel() {
     el.innerHTML = '';
     for (let i = start; i < start + count; i++) {
       const chip = document.createElement('div');
-      chip.className = 'letter-chip';
+      chip.className = 'letter-chip' + (highlightedIdx === i ? ' active' : '');
       chip.textContent = letters[i];
       chip.draggable = true;
 
@@ -558,6 +1042,7 @@ function renderPanel() {
         chip.classList.remove('drag-over');
         const src = parseInt(e.dataTransfer.getData('text/plain'));
         if (!isNaN(src) && src !== i) {
+          highlightedIdx = null;
           [letters[src], letters[i]] = [letters[i], letters[src]];
           buildCube();
           updateHash();
@@ -565,6 +1050,7 @@ function renderPanel() {
         renderPanel();
       });
 
+      chip.addEventListener('click', () => setHighlight(i));
       el.appendChild(chip);
     }
   }
@@ -578,6 +1064,7 @@ document.getElementById('panel-close').addEventListener('click', () => {
   panel.classList.remove('open');
 });
 document.getElementById('shuffle-btn').addEventListener('click', () => {
+  highlightedIdx = null;
   for (let i = letters.length-1; i > 0; i--) {
     const j = Math.random()*(i+1)|0;
     [letters[i], letters[j]] = [letters[j], letters[i]];
@@ -587,6 +1074,7 @@ document.getElementById('shuffle-btn').addEventListener('click', () => {
   updateHash();
 });
 document.getElementById('reset-btn').addEventListener('click', () => {
+  highlightedIdx = null;
   letters = [...DEFAULT_LETTERS];
   buildCube();
   renderPanel();
@@ -595,10 +1083,43 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
 // ── Bottom buttons ───────────────────────────────────────────────────
 const autoBtn = document.getElementById('autorotate-btn');
+let idleInterval = null;
+
+let lastIdleAxis = null;
+function startIdle() {
+  controls.autoRotate = true;
+  autoBtn.textContent = '⏸ Pause';
+  if (!idleInterval) {
+    idleInterval = setInterval(() => {
+      if (!currentAnim && !queue.length) {
+        const axes = ['x','y','z'].filter(a => a !== lastIdleAxis);
+        const axis = axes[Math.random()*axes.length|0];
+        lastIdleAxis = axis;
+        const layers = [-1,0,1], angles = [Math.PI/2, -Math.PI/2];
+        queueRotation(
+          axis,
+          layers[Math.random()*3|0],
+          angles[Math.random()*2|0],
+          400
+        );
+      }
+    }, 1200);
+  }
+}
+
+function stopIdle() {
+  controls.autoRotate = false;
+  autoBtn.textContent = '▶ Resume';
+  if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
+}
+
 autoBtn.addEventListener('click', () => {
-  controls.autoRotate = !controls.autoRotate;
-  autoBtn.textContent = controls.autoRotate ? '⏸ Pause' : '▶ Resume';
+  if (controls.autoRotate) stopIdle();
+  else startIdle();
 });
+
+// Start idle on load
+startIdle();
 document.getElementById('scramble-btn').addEventListener('click', () => scramble());
 
 // ── Cube key ──────────────────────────────────────────────────────────
@@ -606,7 +1127,7 @@ function toKey(ltrs) {
   return GROUPS.map(({start, count}) => {
     const seg = [];
     for (let i = start; i < start + count; i++) seg.push(HEBREW_TO_EN[ltrs[i]]);
-    return seg.sort().join('');
+    return seg.join('');
   }).join('-');
 }
 
@@ -631,6 +1152,7 @@ function parseKey(key) {
 function applyKey(key) {
   const parsed = parseKey(key);
   if (!parsed) return false;
+  highlightedIdx = null;
   letters = parsed;
   buildCube();
   renderPanel();
@@ -641,6 +1163,12 @@ function updateHash() {
   const key = toKey(letters);
   const hash = '#key=' + encodeURIComponent(key);
   if (location.hash !== hash) history.pushState(null, '', hash);
+  // Update cube pill subtitle if pipeline UI exists
+  const cubeSub = document.getElementById('pill-sub-cube');
+  if (cubeSub) {
+    const isDefault = letters.every((l, i) => l === DEFAULT_LETTERS[i]);
+    cubeSub.textContent = isDefault ? 'Default' : 'Custom';
+  }
 }
 
 function readCubeState() {
@@ -679,10 +1207,25 @@ function parseStateKey(key) {
 
 function loadFromHash() {
   const hash = location.hash;
+  if (hash.startsWith('#recipe=')) {
+    const recipe = decodeRecipe(hash);
+    if (recipe) {
+      // Defer recipe application until after pipeline UI is set up
+      setTimeout(() => {
+        applyRecipe(recipe);
+        pipeBar.classList.add('open');
+        outPanel.classList.add('open');
+        pInitLetters = [...letters];
+        pInitialized = true;
+      }, 100);
+      return true;
+    }
+  }
   if (hash.startsWith('#state=')) {
     const key = decodeURIComponent(hash.slice(7));
     const parsed = parseStateKey(key);
     if (!parsed) return false;
+    highlightedIdx = null;
     letters = parsed;
     buildCube();
     renderPanel();
@@ -696,7 +1239,7 @@ function loadFromHash() {
 }
 
 // Apply key from URL on load, or set default hash
-if (location.hash.startsWith('#key=') || location.hash.startsWith('#state=')) {
+if (location.hash.startsWith('#recipe=') || location.hash.startsWith('#key=') || location.hash.startsWith('#state=')) {
   loadFromHash();
 } else {
   const key = toKey(letters);
@@ -705,6 +1248,9 @@ if (location.hash.startsWith('#key=') || location.hash.startsWith('#state=')) {
 
 // Browser back/forward
 window.addEventListener('popstate', loadFromHash);
+
+// Highlight a random letter on load (not the center piece at index 26)
+setHighlight(Math.random() * 26 | 0);
 
 // ── Key dialog ────────────────────────────────────────────────────────
 const keyDialog = document.getElementById('key-dialog');
@@ -777,7 +1323,888 @@ window.addEventListener('keydown', ev => {
     closeKeyDialog();
     ev.stopPropagation();
   }
+  if (ev.key === 'Escape' && document.getElementById('mapping-dialog').classList.contains('open')) {
+    closeMappingDialog();
+    ev.stopPropagation();
+  }
 }, true);
+
+// ── Hebrew / digit data ──────────────────────────────────────────────
+
+const GEMATRIA = {
+  'א':1,'ב':2,'ג':3,'ד':4,'ה':5,'ו':6,'ז':7,'ח':8,'ט':9,
+  'י':10,'כ':20,'ל':30,'מ':40,'נ':50,'ס':60,'ע':70,'פ':80,'צ':90,
+  'ק':100,'ר':200,'ש':300,'ת':400,
+  'ך':500,'ם':600,'ן':700,'ף':800,'ץ':900
+};
+
+function digitalRoot(n) { return n <= 0 ? 0 : ((n - 1) % 9) + 1; }
+
+// Pre-computed digit sequences
+const PI_DIGITS  = '31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491';
+const E_DIGITS   = '27182818284590452353602874713526624977572470936999595749669676277240766303535475945713821785251664274274663919320030599218174135966290435729003342952605956307381323286279434907632338298807531952510190115738341879307021540891499348841675092447614606680822648001684774118537423454424371075390777449920695517027618386062613313845830007520449338265602976067371132007093287091274437470472306969772093101416928368190255151086574637721112523897844250569536967707854499699679468644549059879316368892300987931277361782154249992295763514822082698951936680331825288693984964651058209392398294887933203625094431173012381970684161403970198376793206832823764648042953118023287825098194558153017567173613320698112509961818815930416903515988885193458072738667385894228792284998920868058257492796104841984443634632449684875602336248270419786232090021609902353043699418491463140934317381436405462531520961836908887070167683964243781405927145635490613031072085103837505101157477041718986106873969655212671546889570350354';
+const PHI_DIGITS = '16180339887498948482045868343656381177203091798057628621354486227052604628189024497072072041893911374847540880753868917521266338622235369317931800607667263544333890865959395829056383226613199282902678806752087668925017116962070322210432162695486262963136144381497587012203408058879544547492461856953648644492410443207713449470495903998111153224625698176042052298301326686532016842473640236318141698553146711012085245055319514157956969854166647060601200786099429863491803422837206810809085924561003508361453120348594685923269350027740526808614708916354897445843532653255091382979064476880744862859625022859413579505734327440555306494241037850956006984893232973073747624315416498220682694285155609017693613674977582028867239460488959133844683478788356254519413452959027226891804335252239899540721593800063419147530558201099506553697613453825254345091585960912331910850985142097747569145230059892783380537136108578503442840777530427824690127';
+const FIB_CYCLE = [1,1,2,3,5,8,4,3,7,1,8,9,8,8,7,6,4,1,5,6,2,8,1,9];
+
+// Mezuzah text (Deuteronomy 6:4-9 + 11:13-21) - 713 letters
+const MEZUZAH_DISPLAY = 'שמע ישראל יהוה אלהינו יהוה אחד ואהבת את יהוה אלהיך בכל לבבך ובכל נפשך ובכל מאדך והיו הדברים האלה אשר אנכי מצוך היום על לבבך ושננתם לבניך ודברת בם בשבתך בביתך ובלכתך בדרך ובשכבך ובקומך וקשרתם לאות על ידך והיו לטטפת בין עיניך וכתבתם על מזזות ביתך ובשעריך והיה אם שמע תשמעו אל מצותי אשר אנכי מצוה אתכם היום לאהבה את יהוה אלהיכם ולעבדו בכל לבבכם ובכל נפשכם ונתתי מטר ארצכם בעתו יורה ומלקוש ואספת דגנך ותירשך ויצהרך ונתתי עשב בשדך לבהמתך ואכלת ושבעת השמרו לכם פן יפתה לבבכם וסרתם ועבדתם אלהים אחרים והשתחויתם להם וחרה אף יהוה בכם ועצר את השמים ולא יהיה מטר והאדמה לא תתן את יבולה ואבדתם מהרה מעל הארץ הטבה אשר יהוה נתן לכם ושמתם את דברי אלה על לבבכם ועל נפשכם וקשרתם אתם לאות על ידכם והיו לטוטפת בין עיניכם ולמדתם אתם את בניכם לדבר בם בשבתך בביתך ובלכתך בדרך ובשכבך ובקומך וכתבתם על מזוזות ביתך ובשעריך למען ירבו ימיכם וימי בניכם על האדמה אשר נשבע יהוה לאבתיכם לתת להם כימי השמים על הארץ';
+const MEZUZAH_TEXT = MEZUZAH_DISPLAY.replace(/\s/g, '');
+
+function getDigits(src, custom) {
+  switch (src) {
+    case 'pi':  return [...PI_DIGITS].map(Number);
+    case 'e':   return [...E_DIGITS].map(Number);
+    case 'phi': return [...PHI_DIGITS].map(Number);
+    case 'fib': {
+      const d = [];
+      for (let i = 0; i < 500; i++) d.push(FIB_CYCLE[i % 24]);
+      return d;
+    }
+    default: return custom || [];
+  }
+}
+
+function hebrewToDigits(text) {
+  const d = [];
+  for (const ch of text) { const v = GEMATRIA[ch]; if (v) d.push(digitalRoot(v)); }
+  return d;
+}
+
+// ── Permutation Engine State ─────────────────────────────────────────
+const GENESIS_DISPLAY = 'בראשית ברא אלהים את השמים ואת הארץ';
+const GENESIS_TEXT = GENESIS_DISPLAY.replace(/\s/g, '');
+const SOURCE_PRESETS = { mezuzah: MEZUZAH_TEXT, genesis: GENESIS_TEXT };
+const SOURCE_DISPLAY = { mezuzah: MEZUZAH_DISPLAY, genesis: GENESIS_DISPLAY };
+const ROT_LABELS = { pi: 'π digits', e: 'e digits', phi: 'φ digits', fib: 'Fibonacci', custom: 'Custom', hebrew: 'Hebrew→digits' };
+
+// Amino acid mapping: 22 standard letters → 20 amino acids + silent; finals → base letter
+const HEBREW_22 = [...'אבגדהוזחטיכלמנסעפצקרשת'];
+const FINAL_TO_BASE = { 'ך':'כ', 'ם':'מ', 'ן':'נ', 'ף':'פ', 'ץ':'צ' };
+const AMINO_MAP = {
+  'א':'*','ב':'A','ג':'V','ד':'L','ה':'I','ו':'P','ז':'F','ח':'W','ט':'M','י':'S',
+  'כ':'T','ל':'C','מ':'Y','נ':'N','ס':'D','ע':'*','פ':'Q','צ':'H','ק':'K','ר':'R',
+  'ש':'G','ת':'E'
+};
+const AMINO_NAMES = {
+  G:'Gly',A:'Ala',V:'Val',L:'Leu',I:'Ile',P:'Pro',F:'Phe',W:'Trp',M:'Met',S:'Ser',
+  T:'Thr',C:'Cys',Y:'Tyr',N:'Asn',D:'Asp',E:'Glu',Q:'Gln',H:'His',K:'Lys',R:'Arg','*':'Silent'
+};
+const DEFAULT_AMINO_KEY = HEBREW_22.map(ch => AMINO_MAP[ch]).join('');
+const AMINO_CODES = ['G','A','V','L','I','P','F','W','M','S','T','C','Y','N','D','E','Q','H','K','R','*'];
+function aminoLookup(ch) { return AMINO_MAP[FINAL_TO_BASE[ch] || ch] || '?'; }
+function toAminoKey() { return HEBREW_22.map(ch => AMINO_MAP[ch]).join(''); }
+function parseAminoKey(key) {
+  if (!key || key.length !== 22) return false;
+  for (let i = 0; i < 22; i++) {
+    if (!AMINO_CODES.includes(key[i])) return false;
+  }
+  for (let i = 0; i < 22; i++) AMINO_MAP[HEBREW_22[i]] = key[i];
+  return true;
+}
+
+let pSrcPreset = 'mezuzah';
+let pSourceText = MEZUZAH_TEXT;
+let pRotSrc = 'pi';
+let pRotSeq = getDigits('pi');
+let pRotCustom = [];
+let pRotHebrew = '';
+let pMoveMode = 'layers'; // 'layers' or 'cube'
+let pFlash = true;
+let pIdx = 0;
+let pPlaying = false;
+let pSpeed = 200;
+let pInput = [];
+let pOutput = [];
+let pMoves = [];
+let pStates = [];
+let pSteps = [];
+let pInitLetters = null;
+let pInitialized = false;
+
+// DOM refs
+const pipeBar = document.getElementById('pipeline-bar');
+const outPanel = document.getElementById('output-panel');
+const pPlayBtn = document.getElementById('pipe-play');
+const pSpeedEl = document.getElementById('pipe-speed');
+const pSpeedValEl = document.getElementById('pipe-speed-val');
+const pCounterEl = document.getElementById('pipe-counter');
+const pResultEl = document.getElementById('output-result');
+const pAminoEl = document.getElementById('output-amino');
+const pStepLogEl = document.getElementById('step-log');
+const pFlashEl = document.getElementById('pipe-flash');
+pFlashEl.addEventListener('change', () => { pFlash = pFlashEl.checked; if (!pFlash) pClearGlow(); });
+const srcTextarea = document.getElementById('source-textarea');
+
+// Block manual rotations during pipeline playback
+window.addEventListener('keydown', ev => {
+  if (pPlaying && NUM_MOVES[ev.key]) { ev.preventDefault(); ev.stopImmediatePropagation(); }
+}, true);
+
+// ── Utility ──────────────────────────────────────────────────────────
+function waitAnimDone(cb) {
+  (function poll() { (currentAnim || queue.length) ? requestAnimationFrame(poll) : cb(); })();
+}
+
+// ── Pipeline open/close ──────────────────────────────────────────────
+document.getElementById('pipeline-btn').addEventListener('click', () => {
+  const opening = !pipeBar.classList.contains('open');
+  pipeBar.classList.toggle('open');
+  outPanel.classList.toggle('open');
+  if (opening) {
+    panel.classList.remove('open');
+    if (!pInitialized) {
+      stopIdle();
+      clearHighlight();
+      if (yellowFlashMesh) { clearGlow(yellowFlashMesh); yellowFlashMesh = null; }
+      pInitLetters = [...letters];
+      buildCube();
+      pStates.push(readCubeState());
+      pInitialized = true;
+    }
+    renderPipeCounter();
+    // Pre-fill source textarea (with spaces for readability)
+    if (!srcTextarea.value) {
+      srcTextarea.value = SOURCE_DISPLAY[pSrcPreset] || pSourceText;
+      document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
+    }
+  }
+});
+
+document.getElementById('output-close').addEventListener('click', () => {
+  if (pPlaying) pPause();
+  pipeBar.classList.remove('open');
+  outPanel.classList.remove('open');
+});
+
+// ── Stage dropdown toggle ────────────────────────────────────────────
+let openDropdown = null;
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.stage-dropdown.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.pipeline-pill.active').forEach(p => p.classList.remove('active'));
+  openDropdown = null;
+}
+
+document.querySelectorAll('.pipeline-pill').forEach(pill => {
+  pill.addEventListener('click', e => {
+    if (pill.classList.contains('dimmed')) return;
+    e.stopPropagation();
+    // Mapping pill opens full modal instead of dropdown
+    if (pill.dataset.stage === 'mapping') {
+      closeAllDropdowns();
+      openMappingDialog();
+      return;
+    }
+    const dd = pill.querySelector('.stage-dropdown');
+    if (!dd) return;
+    const wasOpen = dd.classList.contains('open');
+    closeAllDropdowns();
+    if (!wasOpen) {
+      dd.classList.add('open');
+      pill.classList.add('active');
+      openDropdown = dd;
+    }
+  });
+});
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  if (openDropdown && !e.target.closest('.stage-dropdown') && !e.target.closest('.pipeline-pill')) {
+    closeAllDropdowns();
+  }
+});
+
+// Prevent dropdown clicks from closing
+document.querySelectorAll('.stage-dropdown').forEach(dd => {
+  dd.addEventListener('click', e => e.stopPropagation());
+});
+
+// ── Source text selection ─────────────────────────────────────────────
+document.querySelectorAll('#src-presets .stage-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#src-presets .stage-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pSrcPreset = btn.dataset.srcPreset;
+    if (SOURCE_PRESETS[pSrcPreset]) {
+      pSourceText = SOURCE_PRESETS[pSrcPreset];
+      srcTextarea.value = SOURCE_DISPLAY[pSrcPreset] || pSourceText;
+    } else {
+      pSourceText = srcTextarea.value.replace(/[^א-ת]/g, '');
+    }
+    document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
+    document.getElementById('pill-sub-source').textContent =
+      pSrcPreset === 'mezuzah' ? 'Mezuzah' : pSrcPreset === 'genesis' ? 'Genesis 1:1' : 'Custom';
+    pReset();
+  });
+});
+
+srcTextarea.addEventListener('input', () => {
+  // Auto-switch to custom when user edits
+  document.querySelectorAll('#src-presets .stage-preset').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-src-preset="custom"]').classList.add('active');
+  pSrcPreset = 'custom';
+  pSourceText = srcTextarea.value.replace(/[^א-ת]/g, '');
+  document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
+  document.getElementById('pill-sub-source').textContent = 'Custom';
+});
+
+// ── Rotation source selection ────────────────────────────────────────
+document.querySelectorAll('#rot-presets .stage-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#rot-presets .stage-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pRotSrc = btn.dataset.rot;
+    document.getElementById('rot-custom-area').style.display = pRotSrc === 'custom' ? 'block' : 'none';
+    document.getElementById('rot-hebrew-area').style.display = pRotSrc === 'hebrew' ? 'block' : 'none';
+    if (pRotSrc !== 'custom' && pRotSrc !== 'hebrew') {
+      pRotSeq = getDigits(pRotSrc);
+      document.getElementById('pill-sub-rot').textContent = ROT_LABELS[pRotSrc] || pRotSrc;
+      pReset();
+    }
+  });
+});
+
+document.getElementById('rot-custom-set').addEventListener('click', () => {
+  const raw = document.getElementById('rot-custom-input').value.trim();
+  const digits = [...raw].map(Number).filter(d => d >= 0 && d <= 9);
+  if (digits.length) {
+    pRotSeq = digits;
+    pRotCustom = digits;
+    document.getElementById('pill-sub-rot').textContent = 'Custom';
+    pReset();
+    closeAllDropdowns();
+  }
+});
+
+document.getElementById('rot-hebrew-set').addEventListener('click', () => {
+  const text = document.getElementById('rot-hebrew-input').value.trim();
+  const digits = hebrewToDigits(text);
+  if (digits.length) {
+    pRotSeq = digits;
+    pRotHebrew = text;
+    document.getElementById('pill-sub-rot').textContent = 'Hebrew→digits';
+    pReset();
+    closeAllDropdowns();
+  }
+});
+
+document.getElementById('rot-custom-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('rot-custom-set').click();
+});
+document.getElementById('rot-hebrew-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('rot-hebrew-set').click();
+});
+
+// ── Cube stage shortcuts ─────────────────────────────────────────────
+document.getElementById('cube-open-panel').addEventListener('click', () => {
+  closeAllDropdowns();
+  panel.classList.add('open');
+  renderPanel();
+});
+document.getElementById('cube-open-key').addEventListener('click', () => {
+  closeAllDropdowns();
+  openKeyDialog();
+});
+
+// ── Speed ────────────────────────────────────────────────────────────
+pSpeedEl.addEventListener('input', () => {
+  pSpeed = parseInt(pSpeedEl.value);
+  pSpeedValEl.textContent = pSpeed + 'ms';
+});
+
+// ── Playback controls ────────────────────────────────────────────────
+pPlayBtn.addEventListener('click', () => pPlaying ? pPause() : pPlay());
+document.getElementById('pipe-fwd').addEventListener('click', () => { if (pPlaying) pPause(); waitAnimDone(() => pStepFwd()); });
+document.getElementById('pipe-back').addEventListener('click', () => { if (pPlaying) pPause(); waitAnimDone(() => pStepBack()); });
+document.getElementById('pipe-reset').addEventListener('click', () => { if (pPlaying) pPause(); waitAnimDone(() => pReset()); });
+document.getElementById('pipe-run-all').addEventListener('click', () => { waitAnimDone(() => pRunAll()); });
+
+function pPlay() {
+  if (!pSourceText.length || !pRotSeq.length) return;
+  stopIdle();
+  pPlaying = true;
+  pPlayBtn.textContent = '⏸';
+  pPlayBtn.classList.add('playing');
+  pPlayLoop();
+}
+
+function pPause() {
+  pPlaying = false;
+  pPlayBtn.textContent = '▶';
+  pPlayBtn.classList.remove('playing');
+}
+
+function pClearGlow() {
+  if (glowMeshRef) { clearGlow(glowMeshRef); glowMeshRef = null; }
+  if (yellowFlashMesh) { clearGlow(yellowFlashMesh); yellowFlashMesh = null; }
+  glowOldPos = null;
+  // Sweep all cubies to ensure no stale emissive from glow/flash
+  for (const m of cubeGroup.children) {
+    if (!m.isMesh || !Array.isArray(m.material)) continue;
+    for (const mat of m.material) {
+      if (mat !== INNER_MAT && mat.emissiveIntensity > 0) {
+        mat.emissive.setHex(0x000000);
+        mat.emissiveIntensity = 0;
+      }
+    }
+  }
+}
+
+function pReset() {
+  pPause();
+  pClearGlow();
+  if (pInitLetters) { letters = [...pInitLetters]; buildCube(); renderPanel(); }
+  pIdx = 0;
+  pInput = [];
+  pOutput = [];
+  pMoves = [];
+  pStates = [readCubeState()];
+  pSteps = [];
+  renderPipeAll();
+}
+
+function pPlayLoop() {
+  if (!pPlaying || pIdx >= [...pSourceText].length) { pPause(); return; }
+  pStepFwd(() => { if (pPlaying) pPlayLoop(); });
+}
+
+// ── Permutation step ─────────────────────────────────────────────────
+function pStepFwd(onDone) {
+  // Bug fix: retry after animation instead of silently dropping callback
+  if (currentAnim || queue.length) {
+    if (onDone) waitAnimDone(() => pStepFwd(onDone));
+    return;
+  }
+  const srcChars = [...pSourceText];
+  if (pIdx >= srcChars.length) { pPause(); return; }
+  stopIdle();
+
+  const inputLetter = srcChars[pIdx];
+  const rotIdx = pIdx % pRotSeq.length;
+  const digit = pRotSeq[rotIdx];
+
+  const stateBefore = readCubeState();
+  const posIdx = stateBefore.indexOf(inputLetter);
+
+  if (posIdx === -1 || digit === 0) {
+    // Not found on cube or digit 0 → identity mapping
+    const outLetter = posIdx === -1 ? inputLetter : stateBefore[posIdx];
+    pInput.push(inputLetter);
+    pOutput.push(outLetter);
+    pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit: digit, outL: outLetter, same: inputLetter === outLetter, moved: false });
+    pIdx++;
+    renderPipeAll();
+    if (onDone) setTimeout(onDone, 0);
+    return;
+  }
+
+  const moveTable = pMoveMode === 'cube' ? PIPE_MOVES : NUM_MOVES;
+  const move = moveTable[String(digit)];
+  if (!move) {
+    // Invalid digit → identity
+    pInput.push(inputLetter);
+    pOutput.push(inputLetter);
+    pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit, outL: inputLetter, same: true, moved: false });
+    pIdx++;
+    renderPipeAll();
+    if (onDone) setTimeout(onDone, 0);
+    return;
+  }
+
+  const angle = move.s * Math.PI / 2;
+  pMoves.push({ axis: move.axis, layer: move.layer, angle });
+
+  // Highlight the input letter on the cube (blue glow) before rotation
+  if (pFlash) {
+    if (glowMeshRef) clearGlow(glowMeshRef);
+    if (yellowFlashMesh) { clearGlow(yellowFlashMesh); yellowFlashMesh = null; }
+    const inputMesh = cubeGroup.children.find(m => m.isMesh && m.userData.letter === inputLetter);
+    if (inputMesh) {
+      glowMeshRef = inputMesh;
+      applyGlow(glowMeshRef);
+      glowOldPos = {
+        x: Math.round(inputMesh.position.x),
+        y: Math.round(inputMesh.position.y),
+        z: Math.round(inputMesh.position.z)
+      };
+    }
+  }
+
+  queueRotation(move.axis, move.layer, angle, pSpeed);
+
+  waitAnimDone(() => {
+    const stateAfter = readCubeState();
+    const outLetter = stateAfter[posIdx];
+    pInput.push(inputLetter);
+    pOutput.push(outLetter);
+    pStates.push(stateAfter);
+    pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: true });
+
+    if (pFlash) {
+      // For whole-cube rotations the built-in flash won't trigger (all pieces move),
+      // so manually flash the output letter's mesh yellow
+      if (move.layer === null && outLetter !== inputLetter) {
+        const outMesh = cubeGroup.children.find(m => m.isMesh && m.userData.letter === outLetter);
+        if (outMesh) {
+          if (yellowFlashMesh) clearGlow(yellowFlashMesh);
+          yellowFlashMesh = outMesh;
+          yellowFlashStart = performance.now();
+          outMesh.material.forEach(m => {
+            if (m !== INNER_MAT) { m.emissive = new THREE.Color(0xffaa00); m.emissiveIntensity = 0.6; }
+          });
+        }
+      }
+      // Clear the blue glow from input letter
+      if (glowMeshRef) { clearGlow(glowMeshRef); glowMeshRef = null; }
+    }
+
+    pIdx++;
+    renderPipeAll();
+    if (onDone) onDone();
+  });
+}
+
+function pStepBack() {
+  if (currentAnim || queue.length || pIdx === 0) return;
+  pClearGlow();
+
+  pIdx--;
+  pInput.pop();
+  pOutput.pop();
+  const step = pSteps.pop();
+
+  // Only undo rotation if this step actually caused one
+  if (step && step.moved) {
+    const prev = pMoves.pop();
+    pStates.pop();
+    queueRotation(prev.axis, prev.layer, -prev.angle, pSpeed);
+    waitAnimDone(() => renderPipeAll());
+  } else {
+    renderPipeAll();
+  }
+}
+
+// ── Instant rotation (no animation) ──────────────────────────────────
+function applyRotationInstant(axis, layer, angle) {
+  const cubies = cubeGroup.children.filter(
+    m => m.isMesh && (layer === null || Math.round(m.position[axis]) === layer)
+  );
+  if (!cubies.length) return;
+  const pivot = new THREE.Object3D();
+  cubeGroup.add(pivot);
+  cubies.forEach(m => pivot.attach(m));
+  const axisVec = new THREE.Vector3(axis==='x'?1:0, axis==='y'?1:0, axis==='z'?1:0);
+  pivot.quaternion.setFromAxisAngle(axisVec, angle);
+  pivot.updateMatrixWorld(true);
+  for (const m of cubies) {
+    cubeGroup.attach(m);
+    m.position.x = Math.round(m.position.x);
+    m.position.y = Math.round(m.position.y);
+    m.position.z = Math.round(m.position.z);
+    const rm = new THREE.Matrix4().makeRotationFromQuaternion(m.quaternion);
+    const el = rm.elements;
+    for (let i = 0; i < 16; i++) el[i] = Math.round(el[i]);
+    m.quaternion.setFromRotationMatrix(rm);
+  }
+  cubeGroup.remove(pivot);
+}
+
+// ── Run entire pipeline at once ──────────────────────────────────────
+function pRunAll() {
+  if (!pSourceText.length || !pRotSeq.length) return;
+  if (currentAnim || queue.length) return;
+
+  pPause();
+  pClearGlow();
+  stopIdle();
+
+  // Reset cube to initial state
+  if (pInitLetters) { letters = [...pInitLetters]; buildCube(); }
+  pIdx = 0; pInput = []; pOutput = []; pMoves = []; pStates = [readCubeState()]; pSteps = [];
+
+  const srcChars = [...pSourceText];
+  const moveTable = pMoveMode === 'cube' ? PIPE_MOVES : NUM_MOVES;
+
+  for (let i = 0; i < srcChars.length; i++) {
+    const inputLetter = srcChars[i];
+    const digit = pRotSeq[i % pRotSeq.length];
+    const stateBefore = readCubeState();
+    const posIdx = stateBefore.indexOf(inputLetter);
+
+    if (posIdx === -1 || digit === 0) {
+      const outLetter = posIdx === -1 ? inputLetter : stateBefore[posIdx];
+      pInput.push(inputLetter);
+      pOutput.push(outLetter);
+      pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: false });
+      continue;
+    }
+
+    const move = moveTable[String(digit)];
+    if (!move) {
+      pInput.push(inputLetter);
+      pOutput.push(inputLetter);
+      pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: inputLetter, same: true, moved: false });
+      continue;
+    }
+
+    const angle = move.s * Math.PI / 2;
+    pMoves.push({ axis: move.axis, layer: move.layer, angle });
+    applyRotationInstant(move.axis, move.layer, angle);
+
+    const stateAfter = readCubeState();
+    const outLetter = stateAfter[posIdx];
+    pInput.push(inputLetter);
+    pOutput.push(outLetter);
+    pStates.push(stateAfter);
+    pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: true });
+  }
+
+  pIdx = srcChars.length;
+  renderPipeAll();
+}
+
+// ── Renderers ────────────────────────────────────────────────────────
+function renderPipeAll() {
+  renderPipeCounter();
+  renderPipeStepLog();
+  renderPipeOutput();
+  renderPipeAmino();
+}
+
+function renderPipeCounter() {
+  const total = [...pSourceText].length;
+  pCounterEl.textContent = `Letter ${pIdx} / ${total}`;
+}
+
+function renderPipeOutput() {
+  if (!pOutput.length) { pResultEl.textContent = '—'; return; }
+  pResultEl.textContent = pOutput.join('');
+}
+
+function renderPipeAmino() {
+  if (!pOutput.length) { pAminoEl.textContent = '—'; return; }
+  let h = '';
+  for (const ch of pOutput) {
+    const aa = aminoLookup(ch);
+    if (aa === '*') continue; // silent — skip
+    h += aa;
+  }
+  pAminoEl.innerHTML = h || '—';
+}
+
+function renderPipeStepLog() {
+  let h = '';
+  for (let i = 0; i < pSteps.length; i++) {
+    const s = pSteps[i];
+    const cls = s.same ? 'step-cell same' : 'step-cell changed';
+    h += `<div class="${cls}" title="#${s.idx}: ${s.inL}→[${s.digit}]→${s.outL}"><span class="s-in">${s.inL}</span><span class="s-dg">${s.digit}</span><span class="s-out">${s.outL}</span></div>`;
+  }
+  pStepLogEl.innerHTML = h;
+  // Auto-scroll to show latest step
+  pStepLogEl.scrollLeft = pStepLogEl.scrollWidth;
+}
+
+// ── Mapping dialog ───────────────────────────────────────────────────
+const mapDialog = document.getElementById('mapping-dialog');
+const mapOverlay = document.getElementById('mapping-overlay');
+
+function openMappingDialog() {
+  renderMappingDialogGrid();
+  mapDialog.classList.add('open');
+  mapOverlay.classList.add('open');
+}
+
+function closeMappingDialog() {
+  mapDialog.classList.remove('open');
+  mapOverlay.classList.remove('open');
+}
+
+document.getElementById('mapping-close').addEventListener('click', closeMappingDialog);
+mapOverlay.addEventListener('click', closeMappingDialog);
+
+function updateAminoMapLabel() {
+  document.getElementById('pill-sub-map').textContent = toAminoKey() === DEFAULT_AMINO_KEY ? 'Default' : 'Custom';
+}
+
+document.getElementById('mapping-default').addEventListener('click', () => {
+  parseAminoKey(DEFAULT_AMINO_KEY);
+  renderMappingDialogGrid();
+  renderPipeAmino();
+  updateAminoMapLabel();
+});
+
+document.getElementById('amino-key-copy').addEventListener('click', () => {
+  const field = document.getElementById('amino-key-field');
+  navigator.clipboard.writeText(field.value).then(() => {
+    const btn = document.getElementById('amino-key-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1200);
+  });
+});
+
+document.getElementById('amino-key-apply').addEventListener('click', () => {
+  const errEl = document.getElementById('amino-key-error');
+  const key = document.getElementById('amino-key-field').value.trim().toUpperCase();
+  if (parseAminoKey(key)) {
+    errEl.style.display = 'none';
+    renderMappingDialogGrid();
+    renderPipeAmino();
+    updateAminoMapLabel();
+  } else {
+    errEl.style.display = '';
+  }
+});
+
+let mdDragSrc = null;
+
+// 2 rows of 11: א–כ, ל–ת
+const MD_ROWS = [
+  { label: 'א–כ', letters: HEBREW_22.slice(0, 11) },
+  { label: 'ל–ת', letters: HEBREW_22.slice(11) },
+];
+
+function mdSwap(srcLetter, dstLetter) {
+  if (!srcLetter || srcLetter === dstLetter) return;
+  const tmp = AMINO_MAP[srcLetter];
+  AMINO_MAP[srcLetter] = AMINO_MAP[dstLetter];
+  AMINO_MAP[dstLetter] = tmp;
+  renderMappingDialogGrid();
+  renderPipeAmino();
+  updateAminoMapLabel();
+}
+
+function renderMappingDialogGrid() {
+  const grid = document.getElementById('md-grid');
+  let h = '';
+  for (const row of MD_ROWS) {
+    h += `<div class="md-row-label">${row.label}</div>`;
+    for (const ch of row.letters) {
+      const aa = AMINO_MAP[ch] || '*';
+      const name = AMINO_NAMES[aa] || '';
+      h += `<div class="md-cell" data-letter="${ch}"><span class="md-heb">${ch}</span><span class="md-amino" draggable="true" data-letter="${ch}">${aa}</span><span class="md-name">${name}</span></div>`;
+    }
+  }
+  grid.innerHTML = h;
+
+  // Update the key field
+  document.getElementById('amino-key-field').value = toAminoKey();
+
+  // Amino acid badge: draggable + droppable
+  grid.querySelectorAll('.md-amino[draggable]').forEach(badge => {
+    badge.addEventListener('dragstart', e => {
+      mdDragSrc = badge.dataset.letter;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', mdDragSrc);
+      requestAnimationFrame(() => badge.classList.add('dragging'));
+    });
+    badge.addEventListener('dragend', () => {
+      badge.classList.remove('dragging');
+      mdDragSrc = null;
+    });
+    badge.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (mdDragSrc && mdDragSrc !== badge.dataset.letter) {
+        badge.closest('.md-cell').classList.add('drag-over');
+      }
+    });
+    badge.addEventListener('dragleave', () => {
+      badge.closest('.md-cell').classList.remove('drag-over');
+    });
+    badge.addEventListener('drop', e => {
+      e.preventDefault();
+      badge.closest('.md-cell').classList.remove('drag-over');
+      mdSwap(e.dataTransfer.getData('text/plain'), badge.dataset.letter);
+    });
+  });
+
+  // Click to cycle amino acid assignment
+  grid.querySelectorAll('.md-amino[draggable]').forEach(badge => {
+    badge.addEventListener('click', () => {
+      const letter = badge.dataset.letter;
+      const cur = AMINO_MAP[letter] || '*';
+      const idx = AMINO_CODES.indexOf(cur);
+      AMINO_MAP[letter] = AMINO_CODES[(idx + 1) % AMINO_CODES.length];
+      renderMappingDialogGrid();
+      renderPipeAmino();
+      updateAminoMapLabel();
+    });
+  });
+
+  // Cell is also a drop target (easier to hit)
+  grid.querySelectorAll('.md-cell[data-letter]').forEach(cell => {
+    cell.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (mdDragSrc && mdDragSrc !== cell.dataset.letter) cell.classList.add('drag-over');
+    });
+    cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+    cell.addEventListener('drop', e => {
+      e.preventDefault();
+      cell.classList.remove('drag-over');
+      mdSwap(e.dataTransfer.getData('text/plain'), cell.dataset.letter);
+    });
+  });
+}
+
+// ── Move vocabulary ──────────────────────────────────────────────────
+// Whole-cube rotations (layer: null)
+const PIPE_MOVES = {
+  '1': { axis:'x', layer: null, s: 1  },   // X  CW
+  '2': { axis:'x', layer: null, s:-1  },   // X' CCW
+  '3': { axis:'y', layer: null, s: 1  },   // Y  CW
+  '4': { axis:'y', layer: null, s:-1  },   // Y' CCW
+  '5': { axis:'z', layer: null, s: 1  },   // Z  CW
+  '6': { axis:'z', layer: null, s:-1  },   // Z' CCW
+  '7': { axis:'x', layer: null, s: 2  },   // X2 180°
+  '8': { axis:'y', layer: null, s: 2  },   // Y2 180°
+  '9': { axis:'z', layer: null, s: 2  },   // Z2 180°
+};
+
+const LAYER_LABELS = {
+  '1': 'R ↻ x+1', '2': 'M ↺ x·0', '3': 'L ↺ x-1',
+  '4': 'U ↻ y+1', '5': 'E ↺ y·0', '6': 'D ↺ y-1',
+  '7': 'F ↺ z+1', '8': 'S ↺ z·0', '9': 'B ↻ z-1',
+};
+const CUBE_LABELS = {
+  '0': 'skip',
+  '1': 'X ↻',  '2': "X' ↺",
+  '3': 'Y ↻',  '4': "Y' ↺",
+  '5': 'Z ↻',  '6': "Z' ↺",
+  '7': 'X2',   '8': 'Y2',   '9': 'Z2',
+};
+
+function renderMoveVocab() {
+  const el = document.getElementById('move-vocab');
+  if (!el) return;
+  const labels = pMoveMode === 'cube' ? CUBE_LABELS : LAYER_LABELS;
+  const start = pMoveMode === 'cube' ? 0 : 1;
+  let h = '';
+  for (let d = start; d <= 9; d++) {
+    h += `<div class="mv-row"><span class="mv-digit">${d}</span><span class="mv-desc">${labels[d] || ''}</span></div>`;
+  }
+  el.innerHTML = h;
+}
+renderMoveVocab();
+
+// Move mode toggle
+document.querySelectorAll('#move-mode-presets .stage-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#move-mode-presets .stage-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pMoveMode = btn.dataset.mmode;
+    renderMoveVocab();
+    pReset();
+  });
+});
+
+// ── Recipe URL encoding ──────────────────────────────────────────────
+function encodeRecipe() {
+  const parts = [];
+  parts.push('src:' + (SOURCE_PRESETS[pSrcPreset] ? pSrcPreset : encodeURIComponent(pSourceText.slice(0, 200))));
+  parts.push('rot:' + pRotSrc);
+  if (pRotSrc === 'custom' && pRotCustom.length) parts.push('rotd:' + pRotCustom.join(''));
+  if (pRotSrc === 'hebrew' && pRotHebrew) parts.push('roth:' + encodeURIComponent(pRotHebrew.slice(0, 200)));
+  parts.push('mmode:' + pMoveMode);
+  parts.push('cube:' + toKey(letters));
+  const akey = toAminoKey();
+  if (akey !== DEFAULT_AMINO_KEY) parts.push('amap:' + akey);
+  return '#recipe=' + parts.join('|');
+}
+
+function decodeRecipe(hash) {
+  if (!hash.startsWith('#recipe=')) return null;
+  const recipe = { src: 'mezuzah', rot: 'pi', cube: null, rotd: null, roth: null, mmode: 'layers', amap: null };
+  const parts = hash.slice(8).split('|');
+  for (const p of parts) {
+    const [k, ...rest] = p.split(':');
+    const v = rest.join(':');
+    if (k === 'src') recipe.src = v;
+    if (k === 'rot') recipe.rot = v;
+    if (k === 'rotd') recipe.rotd = v;
+    if (k === 'cube') recipe.cube = v;
+    if (k === 'roth') recipe.roth = v;
+    if (k === 'mmode') recipe.mmode = v;
+    if (k === 'amap') recipe.amap = v;
+  }
+  return recipe;
+}
+
+function applyRecipe(recipe) {
+  if (!recipe) return;
+
+  // Source
+  if (SOURCE_PRESETS[recipe.src]) {
+    pSrcPreset = recipe.src;
+    pSourceText = SOURCE_PRESETS[recipe.src];
+  } else {
+    pSrcPreset = 'custom';
+    pSourceText = decodeURIComponent(recipe.src);
+  }
+  srcTextarea.value = SOURCE_DISPLAY[pSrcPreset] || pSourceText;
+  document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
+  document.querySelectorAll('#src-presets .stage-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.srcPreset === pSrcPreset);
+  });
+  document.getElementById('pill-sub-source').textContent =
+    pSrcPreset === 'mezuzah' ? 'Mezuzah' : pSrcPreset === 'genesis' ? 'Genesis 1:1' : 'Custom';
+
+  // Rotation
+  pRotSrc = recipe.rot;
+  if (pRotSrc === 'custom' && recipe.rotd) {
+    pRotSeq = [...recipe.rotd].map(Number).filter(d => d >= 0 && d <= 9);
+    pRotCustom = [...pRotSeq];
+    document.getElementById('rot-custom-input').value = recipe.rotd;
+  } else if (pRotSrc === 'hebrew') {
+    const hText = recipe.roth ? decodeURIComponent(recipe.roth) : pSourceText;
+    pRotHebrew = hText;
+    pRotSeq = hebrewToDigits(hText);
+    document.getElementById('rot-hebrew-input').value = hText;
+  } else {
+    pRotSeq = getDigits(pRotSrc);
+  }
+  document.querySelectorAll('#rot-presets .stage-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.rot === pRotSrc);
+  });
+  document.getElementById('pill-sub-rot').textContent = ROT_LABELS[pRotSrc] || pRotSrc;
+
+  // Move mode
+  pMoveMode = recipe.mmode || 'layers';
+  document.querySelectorAll('#move-mode-presets .stage-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.mmode === pMoveMode);
+  });
+  renderMoveVocab();
+
+  // Cube layout
+  if (recipe.cube) {
+    const parsed = parseKey(recipe.cube);
+    if (parsed) {
+      letters = parsed;
+      buildCube();
+      renderPanel();
+    }
+  }
+
+  // Amino acid mapping
+  if (recipe.amap) parseAminoKey(recipe.amap);
+  updateAminoMapLabel();
+
+  // Update pill subtitle for cube
+  const isDefault = letters.every((l, i) => l === DEFAULT_LETTERS[i]);
+  document.getElementById('pill-sub-cube').textContent = isDefault ? 'Default' : 'Custom';
+
+  pReset();
+}
+
+// Share button
+document.getElementById('pipe-share').addEventListener('click', () => {
+  const url = location.origin + location.pathname + encodeRecipe();
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('pipe-share');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = '🔗 Share', 1500);
+  });
+});
 
 // ── Starfield ────────────────────────────────────────────────────────
 {
@@ -802,6 +2229,32 @@ let lastT = performance.now();
   const now = performance.now();
   tickAnim(now - lastT);
   lastT = now;
+  const pipeOpen = pipeBar.classList.contains('open');
+  // Pulse glow on highlighted cube
+  if (glowMeshRef && Array.isArray(glowMeshRef.material) && !(pipeOpen && !pFlash)) {
+    const pulse = 0.35 + 0.25 * Math.sin(now * 0.004);
+    glowMeshRef.material.forEach(m => {
+      if (m !== INNER_MAT && m.emissive) m.emissiveIntensity = pulse;
+    });
+  }
+  // Fade out yellow flash
+  if (yellowFlashMesh && Array.isArray(yellowFlashMesh.material)) {
+    if (pipeOpen && !pFlash) {
+      // Flash disabled during pipeline — clear immediately
+      clearGlow(yellowFlashMesh);
+      yellowFlashMesh = null;
+    } else {
+      const fade = Math.max(0, 1 - (now - yellowFlashStart) / 800);
+      if (fade <= 0) {
+        clearGlow(yellowFlashMesh);
+        yellowFlashMesh = null;
+      } else {
+        yellowFlashMesh.material.forEach(m => {
+          if (m !== INNER_MAT && m.emissive) m.emissiveIntensity = 0.6 * fade;
+        });
+      }
+    }
+  }
   controls.update();
   renderer.render(scene, camera);
 })();
