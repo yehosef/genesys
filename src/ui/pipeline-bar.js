@@ -7,12 +7,15 @@ import { toKey, parseKey, getLetters, setLetters, LAYER_LABELS, CUBE_LABELS, rea
 import { clearHighlight, clearGlow, setGlowMeshRef, setYellowFlashMesh } from '../cube/highlight.js';
 import { SOURCE_PRESETS, SOURCE_DISPLAY } from '../pipeline/source.js';
 import { encodeRecipe } from '../pipeline/recipe.js';
+import { getTransform, listTransforms } from '../pipeline/transforms.js';
 import {
   ROT_LABELS,
   pSrcPreset, pSourceText, pRotSrc, pRotSeq, pRotCustom, pRotHebrew,
   pMoveMode, pFlash, pSpeed, pPlaying, pInitLetters, pInitialized,
+  pTransform, getEffectiveSource,
   setPSrcPreset, setPSourceText, setPRotSrc, setPRotSeq, setPRotCustom, setPRotHebrew,
   setPMoveMode, setPFlash, setPSpeed, setPInitLetters, setPInitialized,
+  setPTransform,
   pPlay, pPause, pStepFwd, pStepBack, pReset, pRunAll,
   pClearGlow, renderPipeCounter,
 } from '../pipeline/engine.js';
@@ -169,6 +172,35 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
     setPSourceText(srcTextarea.value.replace(/[^\u05D0-\u05EA]/g, ''));
     document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
     document.getElementById('pill-sub-source').textContent = 'Custom';
+  });
+
+  // ── Transform selection ──────────────────────────────────────────────
+  document.querySelectorAll('#transform-presets .stage-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#transform-presets .stage-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const name = btn.dataset.transform;
+      setPTransform(name);
+      const t = getTransform(name);
+      document.getElementById('pill-sub-transform').textContent = t ? t.label : 'None';
+
+      // Show note for expansion transforms
+      const note = document.getElementById('transform-note');
+      if (t && t.expansion) {
+        const effLen = [...getEffectiveSource()].length;
+        note.textContent = `Milui expands ${[...pSourceText].length} → ${effLen} letters`;
+        note.style.display = 'block';
+      } else {
+        note.style.display = 'none';
+      }
+
+      // Update source count to show effective length
+      const effSrc = getEffectiveSource();
+      document.getElementById('source-count').textContent = [...effSrc].length + ' letters';
+
+      pReset();
+      closeAllDropdowns();
+    });
   });
 
   // ── Rotation source selection ──────────────────────────────────────

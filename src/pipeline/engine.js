@@ -5,6 +5,7 @@
 import { getDigits, hebrewToDigits } from '../data/digits.js';
 import { aminoLookup } from '../data/amino.js';
 import { SOURCE_PRESETS, SOURCE_DISPLAY, MEZUZAH_TEXT } from './source.js';
+import { getTransform } from './transforms.js';
 
 // ── Rotation labels ──────────────────────────────────────────────────
 export const ROT_LABELS = {
@@ -35,6 +36,7 @@ export let pRotSeq = getDigits('pi');
 export let pRotCustom = [];
 export let pRotHebrew = '';
 export let pMoveMode = 'layers'; // 'layers' or 'cube'
+export let pTransform = 'identity'; // pre-cube transform name
 
 // ── State setters (needed because ES module exports are read-only bindings) ──
 export function setPIdx(v)         { pIdx = v; }
@@ -55,6 +57,7 @@ export function setPRotSeq(v)      { pRotSeq = v; }
 export function setPRotCustom(v)   { pRotCustom = v; }
 export function setPRotHebrew(v)   { pRotHebrew = v; }
 export function setPMoveMode(v)    { pMoveMode = v; }
+export function setPTransform(v)   { pTransform = v; }
 
 // ── Injected dependencies ────────────────────────────────────────────
 let deps = {};
@@ -99,6 +102,19 @@ function getMoveTable() {
   return pMoveMode === 'cube' ? deps.PIPE_MOVES : deps.NUM_MOVES;
 }
 
+/**
+ * Get the effective source text after applying the selected pre-cube transform.
+ * @returns {string}
+ */
+export function getEffectiveSource() {
+  if (pTransform === 'identity' || !pTransform) return pSourceText;
+  const t = getTransform(pTransform);
+  if (!t) return pSourceText;
+  const srcLetters = [...pSourceText];
+  const transformed = t.apply(srcLetters);
+  return transformed.join('');
+}
+
 // ── Clear glow ───────────────────────────────────────────────────────
 export function pClearGlow() {
   const gs = deps.glowState;
@@ -122,18 +138,24 @@ export function pClearGlow() {
   }
 }
 
+// ── Render hooks (for external modules to hook into render cycle) ────
+const renderHooks = [];
+export function addRenderHook(fn) { renderHooks.push(fn); }
+
 // ── Renderers (DOM-dependent — will move to UI modules later) ────────
 export function renderPipeAll() {
   renderPipeCounter();
   renderPipeStepLog();
   renderPipeOutput();
   renderPipeAmino();
+  for (const hook of renderHooks) hook();
 }
 
 export function renderPipeCounter() {
   const counter = el('pipe-counter');
   if (!counter) return;
-  const total = [...pSourceText].length;
+  const effSrc = getEffectiveSource();
+  const total = [...effSrc].length;
   counter.textContent = `Letter ${pIdx} / ${total}`;
 }
 
@@ -173,7 +195,7 @@ export function renderPipeStepLog() {
 
 // ── Play / Pause ─────────────────────────────────────────────────────
 export function pPlay() {
-  if (!pSourceText.length || !pRotSeq.length) return;
+  if (!getEffectiveSource().length || !pRotSeq.length) return;
   if (deps.stopIdle) deps.stopIdle();
   pPlaying = true;
   const btn = el('pipe-play');
@@ -194,7 +216,7 @@ export function pPause() {
 }
 
 export function pPlayLoop() {
-  if (!pPlaying || pIdx >= [...pSourceText].length) { pPause(); return; }
+  if (!pPlaying || pIdx >= [...getEffectiveSource()].length) { pPause(); return; }
   pStepFwd(() => { if (pPlaying) pPlayLoop(); });
 }
 
@@ -205,7 +227,7 @@ export function pStepFwd(onDone) {
   // Use a simpler check: if waitAnimDone is available, always go through it
   // The actual animation check happens inside waitAnimDone
 
-  const srcChars = [...pSourceText];
+  const srcChars = [...getEffectiveSource()];
   if (pIdx >= srcChars.length) { pPause(); return; }
   if (deps.stopIdle) deps.stopIdle();
 
@@ -337,7 +359,7 @@ export function pReset() {
 
 // ── Run entire pipeline at once (instant, no animation) ──────────────
 export function pRunAll() {
-  if (!pSourceText.length || !pRotSeq.length) return;
+  if (!getEffectiveSource().length || !pRotSeq.length) return;
 
   pPause();
   pClearGlow();
@@ -355,7 +377,7 @@ export function pRunAll() {
   pStates = [deps.readCubeState()];
   pSteps = [];
 
-  const srcChars = [...pSourceText];
+  const srcChars = [...getEffectiveSource()];
   const moveTable = getMoveTable();
 
   for (let i = 0; i < srcChars.length; i++) {

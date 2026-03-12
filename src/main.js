@@ -36,6 +36,7 @@ import {
   setPRotSrc, setPRotSeq, setPRotCustom, setPRotHebrew,
   setPMoveMode,
   renderPipeAmino,
+  addRenderHook,
 } from './pipeline/engine.js';
 import { encodeRecipe, decodeRecipe, applyRecipe } from './pipeline/recipe.js';
 
@@ -44,7 +45,7 @@ import { initBottomBar, startIdle, stopIdle } from './ui/bottom-bar.js';
 import { initLetterPanel, renderPanel, openKeyDialog } from './ui/letter-panel.js';
 import { initPipelineBar, renderMoveVocab } from './ui/pipeline-bar.js';
 import { initMappingDialog, openMappingDialog } from './ui/mapping-dialog.js';
-import { initOutputPanel } from './ui/output-panel.js';
+import { initOutputPanel, renderSequenceStats } from './ui/output-panel.js';
 
 // ── Raycaster for click-to-rotate ────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -137,6 +138,7 @@ async function boot() {
   });
 
   initOutputPanel();
+  addRenderHook(renderSequenceStats);
 
   // 6. Load from URL hash (recipe, state, or key)
   loadFromHash();

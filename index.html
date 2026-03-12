@@ -436,12 +436,23 @@
       </div>
     </div>
     <span class="pipeline-arrow">→</span>
-    <div class="pipeline-pill dimmed" data-stage="transform">
+    <div class="pipeline-pill" data-stage="transform">
       <span class="pill-icon">✡</span>
       <span class="pill-label">Transform</span>
-      <span class="pill-sub">soon</span>
+      <span class="pill-sub" id="pill-sub-transform">None</span>
       <div class="stage-dropdown" id="dd-transform">
-        <div class="stage-soon">Milui · Atbash · Albam · Avgad<br>Coming soon</div>
+        <div class="group-title">PRE-CUBE TRANSFORM</div>
+        <div class="stage-presets" id="transform-presets">
+          <button class="stage-preset active" data-transform="identity">None</button>
+          <button class="stage-preset" data-transform="atbash">Atbash את-בש</button>
+          <button class="stage-preset" data-transform="albam">Albam אל-בם</button>
+          <button class="stage-preset" data-transform="avgad">Avgad אב-גד</button>
+          <button class="stage-preset" data-transform="avgad-rev">Avgad Rev</button>
+          <button class="stage-preset" data-transform="achbi">Achbi אכ-בי</button>
+          <button class="stage-preset" data-transform="ayak">Ayak Bachar</button>
+          <button class="stage-preset" data-transform="milui">Milui מילוי</button>
+        </div>
+        <div class="stage-note" id="transform-note" style="font-size:10px;color:rgba(255,255,255,0.4);padding:6px 0 0;display:none"></div>
       </div>
     </div>
     <span class="pipeline-arrow">→</span>
@@ -528,6 +539,13 @@
     <div class="output-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
       <div class="group-title">Amino Acids</div>
       <div class="amino-text" id="output-amino">—</div>
+    </div>
+    <div class="output-section" id="seq-stats-section" style="display:none">
+      <div class="group-title">Sequence Properties</div>
+      <div class="seq-stats" id="seq-stats" style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7"></div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="panel-btn" id="export-fasta" style="flex:0 0 auto;padding:4px 10px;font-size:11px">Export FASTA</button>
+      </div>
     </div>
   </div>
 </div>
