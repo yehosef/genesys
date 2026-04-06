@@ -4,7 +4,11 @@
 import { toAminoKey, DEFAULT_AMINO_KEY } from '../data/amino.js';
 import { toKey, getLetters, readCubeState } from '../cube/state.js';
 import { clearHighlight, clearGlow } from '../cube/highlight.js';
-import { SOURCE_PRESETS, SOURCE_DISPLAY } from '../pipeline/source.js';
+import {
+  SOURCE_PRESETS, SOURCE_DISPLAY,
+  SOURCE_LIBRARY, SOURCE_CATEGORIES, getSource, getSourcesByCategory,
+  getSourceText, getSourceDisplay,
+} from '../pipeline/source.js';
 import { encodeRecipe } from '../pipeline/recipe.js';
 import { initChainBuilder, renderChain as _renderChain } from './chain-builder.js';
 import {
@@ -30,6 +34,60 @@ const panel = document.getElementById('letter-panel');
 const srcTextarea = document.getElementById('source-textarea');
 
 let openDropdown = null;
+
+// ── Source library helpers ──────────────────────────────────────────
+
+function buildSourceLibrary() {
+  const container = document.getElementById('source-library');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const categoryKeys = Object.keys(SOURCE_CATEGORIES);
+  for (const catKey of categoryKeys) {
+    const cat = SOURCE_CATEGORIES[catKey];
+    const sources = getSourcesByCategory(catKey);
+    if (!sources.length) continue;
+
+    // Category header
+    const header = document.createElement('div');
+    header.className = 'source-category';
+    header.innerHTML = `<span class="source-cat-icon">${cat.icon}</span><span class="source-cat-label">${cat.label}</span><span class="source-cat-arrow">▾</span>`;
+    container.appendChild(header);
+
+    // Source items
+    const group = document.createElement('div');
+    group.className = 'source-cat-group';
+    for (const s of sources) {
+      const item = document.createElement('div');
+      item.className = 'source-item';
+      item.dataset.sourceId = s.id;
+      const letterCount = s.text.length;
+      item.innerHTML = `<span class="source-name">${s.name}</span><span class="source-ref">${s.reference} &middot; ${letterCount}</span>`;
+      group.appendChild(item);
+    }
+    container.appendChild(group);
+  }
+}
+
+function selectSource(id) {
+  const entry = getSource(id);
+  if (!entry) return;
+
+  clearActiveSourceItem();
+  const item = document.querySelector(`.source-item[data-source-id="${id}"]`);
+  if (item) item.classList.add('active');
+
+  setPSrcPreset(id);
+  setPSourceText(entry.text);
+  srcTextarea.value = entry.display;
+  document.getElementById('source-count').textContent = [...entry.text].length + ' letters';
+  document.getElementById('pill-sub-source').textContent = entry.name;
+  pReset();
+}
+
+function clearActiveSourceItem() {
+  document.querySelectorAll('.source-item.active').forEach(el => el.classList.remove('active'));
+}
 
 // ── Dropdown management ─────────────────────────────────────────────
 
@@ -79,8 +137,11 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
       renderPipeCounter();
       _renderChain();
       if (!srcTextarea.value) {
-        srcTextarea.value = SOURCE_DISPLAY[pSrcPreset] || pSourceText;
+        srcTextarea.value = getSourceDisplay(pSrcPreset) || pSourceText;
         document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
+        // Highlight the active source item in the library
+        const activeItem = document.querySelector(`.source-item[data-source-id="${pSrcPreset}"]`);
+        if (activeItem) activeItem.classList.add('active');
       }
     }
   });
@@ -117,29 +178,28 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
     dd.addEventListener('click', e => e.stopPropagation());
   });
 
-  // ── Source text selection ─────────────────────────────────────────
-  document.querySelectorAll('#src-presets .stage-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#src-presets .stage-preset').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      setPSrcPreset(btn.dataset.srcPreset);
-      const currentPreset = btn.dataset.srcPreset;
-      if (SOURCE_PRESETS[currentPreset]) {
-        setPSourceText(SOURCE_PRESETS[currentPreset]);
-        srcTextarea.value = SOURCE_DISPLAY[currentPreset] || SOURCE_PRESETS[currentPreset];
-      } else {
-        setPSourceText(srcTextarea.value.replace(/[^\u05D0-\u05EA]/g, ''));
-      }
-      document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
-      document.getElementById('pill-sub-source').textContent =
-        currentPreset === 'mezuzah' ? 'Mezuzah' : currentPreset === 'genesis' ? 'Genesis 1:1' : 'Custom';
-      pReset();
-    });
+  // ── Build categorized source library dropdown ────────────────────
+  buildSourceLibrary();
+
+  // ── Source item selection (delegated) ────────────────────────────
+  const srcLibrary = document.getElementById('source-library');
+  srcLibrary.addEventListener('click', e => {
+    const item = e.target.closest('.source-item');
+    if (!item) return;
+    const id = item.dataset.sourceId;
+    selectSource(id);
   });
 
+  // ── Category collapse/expand ────────────────────────────────────
+  srcLibrary.addEventListener('click', e => {
+    const header = e.target.closest('.source-category');
+    if (!header) return;
+    header.classList.toggle('collapsed');
+  });
+
+  // ── Custom textarea input ───────────────────────────────────────
   srcTextarea.addEventListener('input', () => {
-    document.querySelectorAll('#src-presets .stage-preset').forEach(b => b.classList.remove('active'));
-    document.querySelector('[data-src-preset="custom"]').classList.add('active');
+    clearActiveSourceItem();
     setPSrcPreset('custom');
     setPSourceText(srcTextarea.value.replace(/[^\u05D0-\u05EA]/g, ''));
     document.getElementById('source-count').textContent = [...pSourceText].length + ' letters';
@@ -213,3 +273,6 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
 
 // Re-export renderChain for external callers (recipe loading)
 export { renderChain } from './chain-builder.js';
+
+// Export selectSource for programmatic source selection (e.g. recipe loading)
+export { selectSource };
