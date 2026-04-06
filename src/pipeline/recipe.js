@@ -2,7 +2,7 @@
 // Encodes/decodes pipeline configuration to/from URL hash strings.
 // Supports v2 chain format and backward-compatible v1 decoding.
 
-import { SOURCE_PRESETS, SOURCE_DISPLAY } from './source.js';
+import { SOURCE_PRESETS, SOURCE_DISPLAY, getSource, getSourceText, getSourceDisplay } from './source.js';
 import { toAminoKey, parseAminoKey, DEFAULT_AMINO_KEY } from '../data/amino.js';
 import { serializeChain, deserializeChain } from './chain.js';
 
@@ -19,7 +19,9 @@ import { serializeChain, deserializeChain } from './chain.js';
  */
 export function encodeRecipe(state) {
   const parts = ['v2'];
-  parts.push('src:' + (SOURCE_PRESETS[state.pSrcPreset] ? state.pSrcPreset : encodeURIComponent(state.pSourceText.slice(0, 200))));
+  // Use source ID if it's a known library entry; otherwise encode the raw text
+  const isKnownSource = getSource(state.pSrcPreset) || SOURCE_PRESETS[state.pSrcPreset];
+  parts.push('src:' + (isKnownSource ? state.pSrcPreset : encodeURIComponent(state.pSourceText.slice(0, 200))));
   parts.push('chain:' + serializeChain(state.pChain));
   const akey = toAminoKey();
   if (akey !== DEFAULT_AMINO_KEY) parts.push('amap:' + akey);
@@ -64,8 +66,12 @@ function decodeV2(raw) {
 export function applyRecipe(recipe, engineState, uiFunctions) {
   if (!recipe) return;
 
-  // Source
-  if (SOURCE_PRESETS[recipe.src]) {
+  // Source — check library first, then legacy presets, then treat as custom text
+  const libText = getSourceText(recipe.src);
+  if (libText) {
+    engineState.setPSrcPreset(recipe.src);
+    engineState.setPSourceText(libText);
+  } else if (SOURCE_PRESETS[recipe.src]) {
     engineState.setPSrcPreset(recipe.src);
     engineState.setPSourceText(SOURCE_PRESETS[recipe.src]);
   } else {
@@ -93,20 +99,24 @@ export function applyRecipe(recipe, engineState, uiFunctions) {
 
   // Update source UI
   const srcTextarea = document.getElementById('source-textarea');
-  const currentPreset = SOURCE_PRESETS[recipe.src] ? recipe.src : 'custom';
+  const libEntry = getSource(recipe.src);
+  const displayText = libEntry ? libEntry.display : (SOURCE_DISPLAY[recipe.src] || decodeURIComponent(recipe.src));
+  const pipelineText = libEntry ? libEntry.text : (SOURCE_PRESETS[recipe.src] || decodeURIComponent(recipe.src));
   if (srcTextarea) {
-    srcTextarea.value = SOURCE_DISPLAY[currentPreset] || decodeURIComponent(recipe.src);
+    srcTextarea.value = displayText;
   }
   const srcCount = document.getElementById('source-count');
-  const srcText = SOURCE_PRESETS[recipe.src] || decodeURIComponent(recipe.src);
-  if (srcCount) srcCount.textContent = [...srcText].length + ' letters';
+  if (srcCount) srcCount.textContent = [...pipelineText].length + ' letters';
 
-  document.querySelectorAll('#src-presets .stage-preset').forEach(b => {
-    b.classList.toggle('active', b.dataset.srcPreset === currentPreset);
-  });
+  // Highlight active source in the library list
+  document.querySelectorAll('.source-item.active').forEach(el => el.classList.remove('active'));
+  if (libEntry) {
+    const activeItem = document.querySelector(`.source-item[data-source-id="${recipe.src}"]`);
+    if (activeItem) activeItem.classList.add('active');
+  }
   const pillSrc = document.getElementById('pill-sub-source');
   if (pillSrc) {
-    pillSrc.textContent = currentPreset === 'mezuzah' ? 'Mezuzah' : currentPreset === 'genesis' ? 'Genesis 1:1' : 'Custom';
+    pillSrc.textContent = libEntry ? libEntry.name : 'Custom';
   }
 
   // Update mapping pill
