@@ -10,7 +10,7 @@ import { DEFAULT_LETTERS } from './data/hebrew.js';
 import { scene, camera, renderer, controls, cubeGroup } from './cube/scene.js';
 import { buildCube, INNER_MAT } from './cube/build.js';
 import {
-  initRotation, queueRotation, tickAnim, applyRotationInstant,
+  initRotation, queueRotation, tickAnim,
   waitAnimDone, currentAnim, queue,
 } from './cube/rotation.js';
 import {
@@ -21,9 +21,9 @@ import {
 } from './cube/state.js';
 import {
   setHighlight, clearHighlight,
-  glowMeshRef, highlightedIdx,
+  glowMeshRef,
   yellowFlashMesh, yellowFlashStart,
-  setYellowFlashMesh, setYellowFlashStart,
+  setYellowFlashMesh,
   applyGlow, clearGlow,
 } from './cube/highlight.js';
 
@@ -32,18 +32,16 @@ import {
   initEngine, pPlaying, pFlash,
   pReset,
   setPInitLetters, setPInitialized,
-  setPSrcPreset, setPSourceText,
-  setPRotSrc, setPRotSeq, setPRotCustom, setPRotHebrew,
-  setPMoveMode,
+  setPSrcPreset, setPSourceText, setPChain,
   renderPipeAmino,
   addRenderHook,
 } from './pipeline/engine.js';
-import { encodeRecipe, decodeRecipe, applyRecipe } from './pipeline/recipe.js';
+import { decodeRecipe, applyRecipe } from './pipeline/recipe.js';
 
 // ── UI ───────────────────────────────────────────────────────────────
 import { initBottomBar, startIdle, stopIdle } from './ui/bottom-bar.js';
 import { initLetterPanel, renderPanel, openKeyDialog } from './ui/letter-panel.js';
-import { initPipelineBar, renderMoveVocab } from './ui/pipeline-bar.js';
+import { initPipelineBar, renderChain } from './ui/pipeline-bar.js';
 import { initMappingDialog, openMappingDialog } from './ui/mapping-dialog.js';
 import { initOutputPanel, renderSequenceStats } from './ui/output-panel.js';
 
@@ -54,13 +52,8 @@ let ptrTime = 0;
 
 // ── Shared glow state object (passed to engine as mutable ref) ───────
 const glowState = {
-  get ref() { return glowMeshRef; },
-  set ref(v) {
-    // We need to use the module setter indirectly
-    // highlight.js exports glowMeshRef as let — import is live binding
-    // The engine writes through this object, so we keep a local mirror
-    _glowStateRef = v;
-  },
+  get ref() { return _glowStateRef; },
+  set ref(v) { _glowStateRef = v; },
   get oldPos() { return _glowStateOldPos; },
   set oldPos(v) { _glowStateOldPos = v; },
   get yellowMesh() { return _glowStateYellow; },
@@ -89,7 +82,6 @@ async function boot() {
   initEngine({
     cubeGroup,
     queueRotation,
-    applyRotationInstant: (axis, layer, angle) => applyRotationInstant(cubeGroup, axis, layer, angle),
     readCubeState: () => readCubeState(cubeGroup),
     waitAnimDone,
     buildCube: () => buildCube(cubeGroup, getLetters()),
@@ -139,6 +131,15 @@ async function boot() {
 
   initOutputPanel();
   addRenderHook(renderSequenceStats);
+
+  // 5b. About dialog
+  const aboutOverlay = document.getElementById('about-overlay');
+  const aboutDialog = document.getElementById('about-dialog');
+  const openAbout = () => { aboutOverlay.classList.add('open'); aboutDialog.classList.add('open'); };
+  const closeAbout = () => { aboutOverlay.classList.remove('open'); aboutDialog.classList.remove('open'); };
+  document.getElementById('about-btn').addEventListener('click', openAbout);
+  document.getElementById('about-close').addEventListener('click', closeAbout);
+  aboutOverlay.addEventListener('click', closeAbout);
 
   // 6. Load from URL hash (recipe, state, or key)
   loadFromHash();
@@ -253,6 +254,12 @@ async function boot() {
 
     // Escape closes dialogs / panels
     if (key === 'Escape') {
+      const aboutDlg = document.getElementById('about-dialog');
+      if (aboutDlg && aboutDlg.classList.contains('open')) {
+        aboutDlg.classList.remove('open');
+        document.getElementById('about-overlay').classList.remove('open');
+        return;
+      }
       const keyDialog = document.getElementById('key-dialog');
       if (keyDialog && keyDialog.classList.contains('open')) {
         keyDialog.classList.remove('open');
@@ -320,15 +327,12 @@ function loadFromHash() {
     if (recipe) {
       setTimeout(() => {
         applyRecipe(recipe, {
-          setPSrcPreset, setPSourceText,
-          setPRotSrc, setPRotSeq, setPRotCustom, setPRotHebrew,
-          setPMoveMode, pReset,
+          setPSrcPreset, setPSourceText, setPChain, pReset,
         }, {
           parseKey,
           setLetters,
           buildCube: () => buildCube(cubeGroup, getLetters()),
           renderPanel,
-          renderMoveVocab,
           getLetters,
           DEFAULT_LETTERS,
         });
@@ -336,6 +340,7 @@ function loadFromHash() {
         if (outPanel) outPanel.classList.add('open');
         setPInitLetters([...getLetters()]);
         setPInitialized(true);
+        renderChain();
       }, 100);
       return true;
     }

@@ -1,84 +1,65 @@
 // ── URL recipe encode/decode ──────────────────────────────────────────
 // Encodes/decodes pipeline configuration to/from URL hash strings.
-// engine.js and recipe.js may reference DOM elements for now.
+// Supports v2 chain format and backward-compatible v1 decoding.
 
 import { SOURCE_PRESETS, SOURCE_DISPLAY } from './source.js';
-import { getDigits, hebrewToDigits } from '../data/digits.js';
 import { toAminoKey, parseAminoKey, DEFAULT_AMINO_KEY } from '../data/amino.js';
-import { ROT_LABELS } from './engine.js';
+import { serializeChain, deserializeChain } from './chain.js';
 
 /**
- * Encode the current pipeline state into a URL hash string.
+ * Encode pipeline state as a v2 URL hash.
  *
- * @param {Object} state - Pipeline state snapshot
+ * @param {Object} state
  * @param {string} state.pSrcPreset
  * @param {string} state.pSourceText
- * @param {string} state.pRotSrc
- * @param {number[]} state.pRotCustom
- * @param {string} state.pRotHebrew
- * @param {string} state.pMoveMode
- * @param {Function} state.toKey - (letters) => string  (cube key encoder)
+ * @param {Object[]} state.pChain - chain step array
+ * @param {Function} state.toKey - (letters) => string
  * @param {string[]} state.letters - current letter assignment
  * @returns {string} hash string starting with '#recipe='
  */
 export function encodeRecipe(state) {
-  const parts = [];
+  const parts = ['v2'];
   parts.push('src:' + (SOURCE_PRESETS[state.pSrcPreset] ? state.pSrcPreset : encodeURIComponent(state.pSourceText.slice(0, 200))));
-  parts.push('rot:' + state.pRotSrc);
-  if (state.pRotSrc === 'custom' && state.pRotCustom.length) parts.push('rotd:' + state.pRotCustom.join(''));
-  if (state.pRotSrc === 'hebrew' && state.pRotHebrew) parts.push('roth:' + encodeURIComponent(state.pRotHebrew.slice(0, 200)));
-  parts.push('mmode:' + state.pMoveMode);
-  parts.push('cube:' + state.toKey(state.letters));
+  parts.push('chain:' + serializeChain(state.pChain));
   const akey = toAminoKey();
   if (akey !== DEFAULT_AMINO_KEY) parts.push('amap:' + akey);
   return '#recipe=' + parts.join('|');
 }
 
 /**
- * Decode a hash string into a recipe object.
+ * Decode a hash string into a recipe object (v2 format only).
  *
- * @param {string} hash - URL hash (e.g. '#recipe=src:mezuzah|rot:pi|...')
- * @returns {{ src: string, rot: string, cube: string|null, rotd: string|null, roth: string|null, mmode: string, amap: string|null } | null}
+ * @param {string} hash
+ * @returns {{ src: string, chain: Object[], amap: string|null, version: number } | null}
  */
 export function decodeRecipe(hash) {
   if (!hash.startsWith('#recipe=')) return null;
-  const recipe = { src: 'mezuzah', rot: 'pi', cube: null, rotd: null, roth: null, mmode: 'layers', amap: null };
-  const parts = hash.slice(8).split('|');
+  const raw = hash.slice(8);
+  if (!raw.startsWith('v2|')) return null;
+  return decodeV2(raw.slice(3));
+}
+
+function decodeV2(raw) {
+  const recipe = { src: 'mezuzah', chain: null, amap: null, version: 2 };
+  const parts = raw.split('|');
   for (const p of parts) {
     const [k, ...rest] = p.split(':');
     const v = rest.join(':');
     if (k === 'src') recipe.src = v;
-    if (k === 'rot') recipe.rot = v;
-    if (k === 'rotd') recipe.rotd = v;
-    if (k === 'cube') recipe.cube = v;
-    if (k === 'roth') recipe.roth = v;
-    if (k === 'mmode') recipe.mmode = v;
+    if (k === 'chain') recipe.chain = deserializeChain(v);
     if (k === 'amap') recipe.amap = v;
   }
+  if (!recipe.chain) recipe.chain = deserializeChain('');
   return recipe;
 }
 
 /**
  * Apply a decoded recipe to restore pipeline state.
+ * Returns a config object — DOM updates are the caller's responsibility.
  *
  * @param {Object} recipe - As returned by decodeRecipe()
- * @param {Object} engineState - Mutable engine state (setters)
- * @param {Function} engineState.setPSrcPreset
- * @param {Function} engineState.setPSourceText
- * @param {Function} engineState.setPRotSrc
- * @param {Function} engineState.setPRotSeq
- * @param {Function} engineState.setPRotCustom
- * @param {Function} engineState.setPRotHebrew
- * @param {Function} engineState.setPMoveMode
- * @param {Function} engineState.pReset
- * @param {Object} uiFunctions - DOM/cube interaction helpers
- * @param {Function} uiFunctions.parseKey - (key) => string[] | null
- * @param {Function} uiFunctions.setLetters - (letters) => void
- * @param {Function} uiFunctions.buildCube
- * @param {Function} uiFunctions.renderPanel
- * @param {Function} uiFunctions.renderMoveVocab
- * @param {Function} uiFunctions.getLetters - () => string[]
- * @param {string[]} uiFunctions.DEFAULT_LETTERS
+ * @param {Object} engineState - Engine setters
+ * @param {Object} uiFunctions - Cube/panel helpers
  */
 export function applyRecipe(recipe, engineState, uiFunctions) {
   if (!recipe) return;
@@ -91,6 +72,24 @@ export function applyRecipe(recipe, engineState, uiFunctions) {
     engineState.setPSrcPreset('custom');
     engineState.setPSourceText(decodeURIComponent(recipe.src));
   }
+
+  // Chain
+  engineState.setPChain(recipe.chain);
+
+  // Apply cube-reset steps: find last cube-reset and apply its key
+  const cubeResets = recipe.chain.filter(s => s.type === 'cube-reset');
+  if (cubeResets.length && uiFunctions.parseKey) {
+    const lastReset = cubeResets[cubeResets.length - 1];
+    const parsed = uiFunctions.parseKey(lastReset.key);
+    if (parsed) {
+      uiFunctions.setLetters(parsed);
+      uiFunctions.buildCube();
+      uiFunctions.renderPanel();
+    }
+  }
+
+  // Amino acid mapping
+  if (recipe.amap) parseAminoKey(recipe.amap);
 
   // Update source UI
   const srcTextarea = document.getElementById('source-textarea');
@@ -110,53 +109,11 @@ export function applyRecipe(recipe, engineState, uiFunctions) {
     pillSrc.textContent = currentPreset === 'mezuzah' ? 'Mezuzah' : currentPreset === 'genesis' ? 'Genesis 1:1' : 'Custom';
   }
 
-  // Rotation
-  engineState.setPRotSrc(recipe.rot);
-  if (recipe.rot === 'custom' && recipe.rotd) {
-    const digits = [...recipe.rotd].map(Number).filter(d => d >= 0 && d <= 9);
-    engineState.setPRotSeq(digits);
-    engineState.setPRotCustom([...digits]);
-    const customInput = document.getElementById('rot-custom-input');
-    if (customInput) customInput.value = recipe.rotd;
-  } else if (recipe.rot === 'hebrew') {
-    const hText = recipe.roth ? decodeURIComponent(recipe.roth) : srcText;
-    engineState.setPRotHebrew(hText);
-    engineState.setPRotSeq(hebrewToDigits(hText));
-    const hebInput = document.getElementById('rot-hebrew-input');
-    if (hebInput) hebInput.value = hText;
-  } else {
-    engineState.setPRotSeq(getDigits(recipe.rot));
-  }
-
-  document.querySelectorAll('#rot-presets .stage-preset').forEach(b => {
-    b.classList.toggle('active', b.dataset.rot === recipe.rot);
-  });
-  const pillRot = document.getElementById('pill-sub-rot');
-  if (pillRot) pillRot.textContent = ROT_LABELS[recipe.rot] || recipe.rot;
-
-  // Move mode
-  engineState.setPMoveMode(recipe.mmode || 'layers');
-  document.querySelectorAll('#move-mode-presets .stage-preset').forEach(b => {
-    b.classList.toggle('active', b.dataset.mmode === (recipe.mmode || 'layers'));
-  });
-  if (uiFunctions.renderMoveVocab) uiFunctions.renderMoveVocab();
-
-  // Cube layout
-  if (recipe.cube && uiFunctions.parseKey) {
-    const parsed = uiFunctions.parseKey(recipe.cube);
-    if (parsed) {
-      uiFunctions.setLetters(parsed);
-      uiFunctions.buildCube();
-      uiFunctions.renderPanel();
-    }
-  }
-
-  // Amino acid mapping
-  if (recipe.amap) parseAminoKey(recipe.amap);
+  // Update mapping pill
   const pillMap = document.getElementById('pill-sub-map');
   if (pillMap) pillMap.textContent = toAminoKey() === DEFAULT_AMINO_KEY ? 'Default' : 'Custom';
 
-  // Update pill subtitle for cube
+  // Update cube pill
   const letters = uiFunctions.getLetters();
   const isDefault = letters.every((l, i) => l === uiFunctions.DEFAULT_LETTERS[i]);
   const pillCube = document.getElementById('pill-sub-cube');

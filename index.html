@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GeneSys - Hebrew Letter Cube</title>
+<title>GeneSys — Hebrew Letter Permutation &amp; Genetic Coding Explorer</title>
+<meta name="description" content="An experimental tool exploring the intersection of ancient Hebrew letter systems, mathematical permutation via Rubik's cube, and amino acid coding. Transform sacred text through classical ciphers and discover what emerges.">
+<meta property="og:title" content="GeneSys — Hebrew Letter Cube">
+<meta property="og:description" content="Explore Hebrew letter permutations through Rubik's cube rotations and classical ciphers, mapped to amino acid sequences.">
+<meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,14 +20,17 @@
     padding: 18px 22px; pointer-events: none;
   }
   #title { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 0 20px rgba(100,160,255,0.8); }
-  #title span { font-size: 11px; display: block; color: rgba(255,255,255,0.45); font-weight: 400; letter-spacing: 1px; margin-top: 3px; }
+  #title .tagline { font-size: 11px; display: block; color: rgba(255,255,255,0.55); font-weight: 400; letter-spacing: 0.5px; margin-top: 3px; }
+  #title .hint { font-size: 10px; display: block; color: rgba(255,255,255,0.25); font-weight: 400; letter-spacing: 0.5px; margin-top: 2px; }
 
   #legend {
     background: rgba(10,10,30,0.75); border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px; padding: 12px 16px; font-size: 11px;
     color: rgba(255,255,255,0.7); line-height: 1.8;
     backdrop-filter: blur(6px); pointer-events: all;
+    opacity: 0.35; transition: opacity 0.3s;
   }
+  #legend:hover { opacity: 1; }
   #legend b { color: #fff; }
   kbd { background: rgba(255,255,255,0.12); border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 10px; }
 
@@ -154,7 +161,7 @@
   .pipeline-pill.dimmed:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
   .pill-icon { font-size: 15px; display: block; line-height: 1.2; }
   .pill-label { color: rgba(255,255,255,0.8); font-size: 10px; font-weight: 600; margin-top: 1px; display: block; }
-  .pill-sub { color: rgba(255,255,255,0.35); font-size: 9px; margin-top: 1px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  .pill-sub { color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 1px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
   .pipeline-share {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
     border-radius: 6px; padding: 5px 10px; cursor: pointer;
@@ -327,6 +334,137 @@
   }
   .mv-digit { color: #ffaa00; font-family: 'Courier New', monospace; font-weight: bold; min-width: 10px; }
   .mv-desc { color: rgba(255,255,255,0.45); font-size: 9px; }
+
+  /* ── Permutation zone (chain builder) ───────────────────── */
+  .permutation-zone {
+    position: relative; display: flex; align-items: center; gap: 4px;
+    flex: 1; min-width: 0;
+  }
+  .chain-chips {
+    display: flex; align-items: center; gap: 3px;
+    flex-wrap: wrap; min-height: 32px;
+  }
+  .chain-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    height: 28px; padding: 2px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7); font-size: 10px; cursor: pointer;
+    transition: all 0.15s; user-select: none; white-space: nowrap; position: relative;
+  }
+  .chain-chip:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+  .chain-chip.active { background: rgba(80,140,255,0.2); border-color: rgba(80,140,255,0.5); }
+  .chain-chip.running { border-color: rgba(255,170,0,0.6); box-shadow: 0 0 8px rgba(255,170,0,0.2); }
+  .chain-chip.dragging { opacity: 0.3; transform: scale(0.9); }
+  .chain-chip.drag-over { background: rgba(80,140,255,0.3); border-color: rgba(80,140,255,0.7); transform: scale(1.05); }
+  .chain-chip .chip-icon { font-size: 12px; }
+  .chain-chip .chip-label { font-weight: 500; }
+  .chain-chip .chip-detail { color: rgba(255,255,255,0.35); font-size: 9px; }
+  .chain-chip .chip-remove {
+    display: none; margin-left: 2px; color: rgba(255,255,255,0.3);
+    font-size: 12px; line-height: 1; padding: 0 2px; cursor: pointer;
+  }
+  .chain-chip:hover .chip-remove { display: inline; }
+  .chain-chip .chip-remove:hover { color: #ff6b6b; }
+  .chain-arrow { color: rgba(255,255,255,0.12); font-size: 10px; flex-shrink: 0; }
+  .chain-add {
+    background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.3); width: 26px; height: 26px; border-radius: 6px;
+    cursor: pointer; font-size: 14px; display: flex; align-items: center;
+    justify-content: center; transition: all 0.2s; flex-shrink: 0;
+  }
+  .chain-add:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff; }
+  #dd-add-step { min-width: 220px; }
+  #dd-add-step .add-step-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  #dd-chip-config { min-width: 240px; }
+
+  /* ── Primary pipeline button ─────────────────────────────────────── */
+  #pipeline-btn {
+    background: rgba(80,140,255,0.15); border-color: rgba(80,140,255,0.4);
+    color: rgba(180,210,255,0.9); font-weight: 600;
+  }
+  #pipeline-btn:hover { background: rgba(80,140,255,0.25); border-color: rgba(80,140,255,0.6); color: #fff; }
+
+  /* ── Run button accent ───────────────────────────────────────────── */
+  #pipe-run-all {
+    background: rgba(80,140,255,0.2); border-color: rgba(80,140,255,0.5);
+    color: rgba(200,220,255,0.9); font-weight: 700;
+  }
+  #pipe-run-all:hover { background: rgba(80,140,255,0.35); border-color: rgba(80,140,255,0.7); color: #fff; }
+
+  /* ── About button ────────────────────────────────────────────────── */
+  #about-btn {
+    background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4);
+  }
+  #about-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+
+  /* ── About overlay ───────────────────────────────────────────────── */
+  #about-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 299; display: none;
+  }
+  #about-overlay.open { display: block; }
+  #about-dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,30,0.97); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+    padding: 28px 32px; z-index: 300; display: none;
+    width: 90vw; max-width: 620px; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  #about-dialog.open { display: block; }
+  #about-dialog h2 {
+    color: #fff; font-size: 22px; font-weight: 700; margin: 0 0 4px;
+    letter-spacing: 1.5px; text-shadow: 0 0 20px rgba(100,160,255,0.5);
+  }
+  #about-dialog .about-subtitle {
+    color: rgba(255,255,255,0.5); font-size: 12px; letter-spacing: 0.5px;
+    margin-bottom: 18px; line-height: 1.5;
+  }
+  #about-dialog h3 {
+    color: rgba(120,180,255,0.9); font-size: 13px; font-weight: 600;
+    letter-spacing: 1px; margin: 18px 0 8px; text-transform: uppercase;
+  }
+  #about-dialog p {
+    color: rgba(255,255,255,0.65); font-size: 13px; line-height: 1.7; margin: 0 0 12px;
+  }
+  #about-dialog .about-features {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0;
+  }
+  #about-dialog .about-feature {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  #about-dialog .about-feature .af-icon { font-size: 18px; margin-bottom: 4px; display: block; }
+  #about-dialog .about-feature .af-title { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; display: block; margin-bottom: 3px; }
+  #about-dialog .about-feature .af-desc { color: rgba(255,255,255,0.4); font-size: 11px; line-height: 1.4; display: block; }
+  #about-dialog .about-footer {
+    margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.3); font-size: 11px; text-align: center;
+  }
+  #about-dialog .about-footer a { color: rgba(120,180,255,0.6); text-decoration: none; }
+  #about-dialog .about-footer a:hover { color: rgba(120,180,255,0.9); }
+
+  /* ── Empty chain placeholder ─────────────────────────────────────── */
+  .chain-empty {
+    color: rgba(255,255,255,0.2); font-size: 11px; font-style: italic;
+    padding: 4px 8px; cursor: pointer; transition: color 0.2s;
+  }
+  .chain-empty:hover { color: rgba(255,255,255,0.5); }
+
+  /* ── Responsive tweaks ───────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    #legend { display: none; }
+    #letter-panel { width: 220px; }
+    #output-panel { width: 280px; }
+    #about-dialog .about-features { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    .bar-btn { padding: 5px 8px; font-size: 11px; }
+    #title { font-size: 16px; }
+    #output-panel { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -334,7 +472,8 @@
 <div id="hud">
   <div id="title">
     GeneSys
-    <span>Drag to orbit · Click face to rotate · Shift+click = highlight</span>
+    <span class="tagline">Hebrew letter permutation meets genetic coding</span>
+    <span class="hint">Drag to orbit · Click face to rotate · Shift+click = highlight</span>
   </div>
   <div id="legend">
     <b>Layers</b><br>
@@ -436,69 +575,11 @@
       </div>
     </div>
     <span class="pipeline-arrow">→</span>
-    <div class="pipeline-pill" data-stage="transform">
-      <span class="pill-icon">✡</span>
-      <span class="pill-label">Transform</span>
-      <span class="pill-sub" id="pill-sub-transform">None</span>
-      <div class="stage-dropdown" id="dd-transform">
-        <div class="group-title">PRE-CUBE TRANSFORM</div>
-        <div class="stage-presets" id="transform-presets">
-          <button class="stage-preset active" data-transform="identity">None</button>
-          <button class="stage-preset" data-transform="atbash">Atbash את-בש</button>
-          <button class="stage-preset" data-transform="albam">Albam אל-בם</button>
-          <button class="stage-preset" data-transform="avgad">Avgad אב-גד</button>
-          <button class="stage-preset" data-transform="avgad-rev">Avgad Rev</button>
-          <button class="stage-preset" data-transform="achbi">Achbi אכ-בי</button>
-          <button class="stage-preset" data-transform="ayak">Ayak Bachar</button>
-          <button class="stage-preset" data-transform="milui">Milui מילוי</button>
-        </div>
-        <div class="stage-note" id="transform-note" style="font-size:10px;color:rgba(255,255,255,0.4);padding:6px 0 0;display:none"></div>
-      </div>
-    </div>
-    <span class="pipeline-arrow">→</span>
-    <div class="pipeline-pill" data-stage="cube">
-      <span class="pill-icon">🎲</span>
-      <span class="pill-label">Cube</span>
-      <span class="pill-sub" id="pill-sub-cube">Default</span>
-      <div class="stage-dropdown" id="dd-cube">
-        <div class="group-title">LETTER ASSIGNMENT</div>
-        <div class="stage-presets">
-          <button class="stage-preset" id="cube-open-panel">Edit Letters</button>
-          <button class="stage-preset" id="cube-open-key">Import Key</button>
-        </div>
-      </div>
-    </div>
-    <span class="pipeline-arrow">→</span>
-    <div class="pipeline-pill" data-stage="rotations">
-      <span class="pill-icon">🔄</span>
-      <span class="pill-label">Rotations</span>
-      <span class="pill-sub" id="pill-sub-rot">π digits</span>
-      <div class="stage-dropdown" id="dd-rotations">
-        <div class="group-title">ROTATION SOURCE</div>
-        <div class="stage-presets" id="rot-presets">
-          <button class="stage-preset active" data-rot="pi">π</button>
-          <button class="stage-preset" data-rot="e">e</button>
-          <button class="stage-preset" data-rot="phi">φ</button>
-          <button class="stage-preset" data-rot="fib">Fib</button>
-          <button class="stage-preset" data-rot="custom">123…</button>
-          <button class="stage-preset" data-rot="hebrew">עברית</button>
-        </div>
-        <div id="rot-custom-area" style="display:none;margin-top:6px">
-          <input type="text" class="key-field" id="rot-custom-input" placeholder="Digits 1-9 (e.g. 314159265)">
-          <button class="key-btn" id="rot-custom-set" style="margin-top:4px;width:100%">Set</button>
-        </div>
-        <div id="rot-hebrew-area" style="display:none;margin-top:6px">
-          <input type="text" class="key-field" id="rot-hebrew-input" placeholder="הקלד טקסט בעברית" dir="rtl" style="font-family:'Frank Ruhl Libre',serif">
-          <button class="key-btn" id="rot-hebrew-set" style="margin-top:4px;width:100%">Set</button>
-        </div>
-        <div class="group-title" style="margin-top:8px">MOVE MODE</div>
-        <div class="stage-presets" id="move-mode-presets">
-          <button class="stage-preset active" data-mmode="layers">Layers</button>
-          <button class="stage-preset" data-mmode="cube">Whole Cube</button>
-        </div>
-        <div class="group-title" style="margin-top:6px">MOVE VOCABULARY</div>
-        <div class="move-vocab" id="move-vocab"></div>
-      </div>
+    <div class="permutation-zone" id="permutation-zone">
+      <div class="chain-chips" id="chain-chips"></div>
+      <button class="chain-add" id="chain-add" title="Add step">＋</button>
+      <div class="stage-dropdown" id="dd-add-step"></div>
+      <div class="stage-dropdown" id="dd-chip-config"></div>
     </div>
     <span class="pipeline-arrow">→</span>
     <div class="pipeline-pill" data-stage="mapping">
@@ -552,11 +633,85 @@
 
 <div id="letter-sequence"></div>
 <div id="bottom-bar">
+  <button class="bar-btn" id="about-btn">ℹ About</button>
   <button class="bar-btn" id="letters-btn">✏ Letters</button>
   <button class="bar-btn" id="key-btn">🔑 Key</button>
   <button class="bar-btn" id="scramble-btn">🎲 Scramble</button>
   <button class="bar-btn" id="pipeline-btn">⚗ Pipeline</button>
   <button class="bar-btn" id="autorotate-btn">⏸ Pause</button>
+</div>
+
+<div id="about-overlay"></div>
+<div id="about-dialog">
+  <div class="key-title">
+    <span>About GeneSys</span>
+    <button class="panel-close" id="about-close">✕</button>
+  </div>
+  <div class="about-subtitle">
+    An experimental tool exploring the intersection of ancient Hebrew letter systems,<br>
+    mathematical permutation, and molecular biology.
+  </div>
+
+  <h3>What is this?</h3>
+  <p>
+    GeneSys places the 27 Hebrew letters (22 standard + 5 final forms) onto a 3&times;3&times;3 Rubik's cube,
+    sorted by topology: corners, edges, faces, and center. Through a configurable pipeline, you feed in
+    sacred Hebrew text, apply classical ciphers and cube rotations, and translate the output into amino acid
+    sequences &mdash; the building blocks of proteins.
+  </p>
+
+  <h3>The Pipeline</h3>
+  <p>
+    <b>Source</b> &rarr; choose Hebrew text (the Mezuzah's 713 letters, Genesis 1:1, or your own).<br>
+    <b>Transform</b> &rarr; chain classical Hebrew ciphers (Atbash, Albam, Avgad, Milui, and more) and
+    cube rotations driven by mathematical constants (&pi;, e, &phi;, Fibonacci) or gematria values.<br>
+    <b>Mapping</b> &rarr; convert the permuted letters to amino acids and analyze the resulting sequence
+    for protein-like properties: molecular weight, charge, hydrophobicity, and more.
+  </p>
+
+  <div class="about-features">
+    <div class="about-feature">
+      <span class="af-icon">✡</span>
+      <span class="af-title">7 Hebrew Ciphers</span>
+      <span class="af-desc">Atbash, Albam, Avgad, Achbi, Ayak Bachar, Milui &mdash; classical transforms from Jewish tradition</span>
+    </div>
+    <div class="about-feature">
+      <span class="af-icon">🧊</span>
+      <span class="af-title">Permutation Algebra</span>
+      <span class="af-desc">Every cube rotation is a permutation in S&#8322;&#8327;. Sequences compose instantly via matrix multiplication</span>
+    </div>
+    <div class="about-feature">
+      <span class="af-icon">🧬</span>
+      <span class="af-title">Amino Acid Mapping</span>
+      <span class="af-desc">22 Hebrew letters map to 20 amino acids + stop codon. Customizable mapping with drag-and-swap</span>
+    </div>
+    <div class="about-feature">
+      <span class="af-icon">📊</span>
+      <span class="af-title">Sequence Analysis</span>
+      <span class="af-desc">Composition, molecular weight, charge, GRAVY score, hydrophobicity profile, FASTA export</span>
+    </div>
+  </div>
+
+  <h3>The Question</h3>
+  <p>
+    Is there a meaningful mapping between Hebrew text and biological structures when mediated by
+    systematic permutation? GeneSys doesn't claim answers &mdash; it provides the tools to explore.
+    Share your discoveries via recipe URLs and see what emerges when ancient language meets
+    permutation algebra.
+  </p>
+
+  <h3>Getting Started</h3>
+  <p>
+    Click <b>⚗ Pipeline</b> below to open the transformation pipeline. Choose a source text,
+    add cipher and rotation steps with the <b>+</b> button, then hit <b>&#9654; Run</b> to see
+    the cube animate through the entire sequence. The output panel shows the resulting Hebrew text
+    and its amino acid translation with protein analysis.
+  </p>
+
+  <div class="about-footer">
+    Built with Three.js &middot; Pure client-side, no server required &middot;
+    <a href="https://github.com/yehosef" target="_blank">GitHub</a>
+  </div>
 </div>
 
 <script type="importmap">

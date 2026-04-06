@@ -2,10 +2,9 @@
 // THE CORE: manages pipeline state, playback, and step logic.
 // Interacts with the cube through injected dependencies (no Three.js imports).
 
-import { getDigits, hebrewToDigits } from '../data/digits.js';
 import { aminoLookup } from '../data/amino.js';
 import { SOURCE_PRESETS, SOURCE_DISPLAY, MEZUZAH_TEXT } from './source.js';
-import { getTransform } from './transforms.js';
+import { runChainPure, resolveRotSeq, defaultChain } from './chain.js';
 
 // ── Rotation labels ──────────────────────────────────────────────────
 export const ROT_LABELS = {
@@ -31,14 +30,11 @@ export let pInitLetters = null;
 export let pInitialized = false;
 export let pSrcPreset = 'mezuzah';
 export let pSourceText = MEZUZAH_TEXT;
-export let pRotSrc = 'pi';
-export let pRotSeq = getDigits('pi');
-export let pRotCustom = [];
-export let pRotHebrew = '';
-export let pMoveMode = 'layers'; // 'layers' or 'cube'
-export let pTransform = 'identity'; // pre-cube transform name
 
-// ── State setters (needed because ES module exports are read-only bindings) ──
+// ── Chain state ─────────────────────────────────────────────────────
+export let pChain = defaultChain();
+
+// ── State setters ───────────────────────────────────────────────────
 export function setPIdx(v)         { pIdx = v; }
 export function setPInput(v)       { pInput = v; }
 export function setPOutput(v)      { pOutput = v; }
@@ -52,41 +48,16 @@ export function setPInitLetters(v) { pInitLetters = v; }
 export function setPInitialized(v) { pInitialized = v; }
 export function setPSrcPreset(v)   { pSrcPreset = v; }
 export function setPSourceText(v)  { pSourceText = v; }
-export function setPRotSrc(v)      { pRotSrc = v; }
-export function setPRotSeq(v)      { pRotSeq = v; }
-export function setPRotCustom(v)   { pRotCustom = v; }
-export function setPRotHebrew(v)   { pRotHebrew = v; }
-export function setPMoveMode(v)    { pMoveMode = v; }
-export function setPTransform(v)   { pTransform = v; }
+export function setPChain(v)       { pChain = v; }
 
 // ── Injected dependencies ────────────────────────────────────────────
 let deps = {};
 
-/**
- * Initialize the engine with external dependencies.
- * @param {Object} dependencies
- * @param {Object} dependencies.cubeGroup - Three.js Group containing cube meshes
- * @param {Function} dependencies.queueRotation - (axis, layer, angle, dur) => void
- * @param {Function} dependencies.applyRotationInstant - (axis, layer, angle) => void
- * @param {Function} dependencies.readCubeState - () => string[]
- * @param {Function} dependencies.waitAnimDone - (cb) => void
- * @param {Function} dependencies.buildCube - () => void
- * @param {Function} dependencies.getLetters - () => string[]
- * @param {Function} dependencies.setLetters - (letters: string[]) => void
- * @param {Function} dependencies.clearGlow - (mesh) => void
- * @param {Function} dependencies.applyGlow - (mesh) => void
- * @param {Object}   dependencies.glowState - { ref, oldPos, yellowMesh, yellowStart }
- * @param {Object}   dependencies.INNER_MAT - Three.js material for inner faces
- * @param {Function} dependencies.renderPanel - () => void
- * @param {Function} dependencies.stopIdle - () => void
- * @param {Object}   dependencies.NUM_MOVES - key->move table for layer mode
- * @param {Object}   dependencies.PIPE_MOVES - key->move table for cube mode
- */
 export function initEngine(dependencies) {
   deps = dependencies;
 }
 
-// ── DOM element refs (will be cleaned up in UI extraction later) ──────
+// ── DOM element refs ──────────────────────────────────────────────────
 function el(id) { return document.getElementById(id); }
 
 // ── Utility ──────────────────────────────────────────────────────────
@@ -98,22 +69,37 @@ function waitAnimDone(cb) {
   }
 }
 
-function getMoveTable() {
-  return pMoveMode === 'cube' ? deps.PIPE_MOVES : deps.NUM_MOVES;
+// ── Playback preparation ──────────────────────────────────────────────
+// Splits pChain at the first cube-rotation step. Pre-steps (ciphers,
+// expansions, cube-resets) are executed instantly to produce
+// pPreparedLetters — the text that feeds into the animated rotation.
+let pPreparedLetters = [];
+let pRotStep = null;
+let pPostSteps = [];
+
+function preparePlayback() {
+  const rotIdx = pChain.findIndex(s => s.type === 'cube-rotation');
+  const preSteps = rotIdx === -1 ? [...pChain] : pChain.slice(0, rotIdx);
+  pRotStep = rotIdx === -1 ? null : pChain[rotIdx];
+  pPostSteps = rotIdx === -1 ? [] : pChain.slice(rotIdx + 1);
+
+  if (preSteps.length) {
+    const cubeState = deps.readCubeState();
+    const result = runChainPure(cubeState, [...pSourceText], preSteps);
+    pPreparedLetters = result.finalOutput;
+    // Sync cube state if pre-steps changed it (e.g. cube-reset)
+    deps.setLetters(result.finalCubeState);
+    deps.buildCube();
+  } else {
+    pPreparedLetters = [...pSourceText];
+  }
 }
 
-/**
- * Get the effective source text after applying the selected pre-cube transform.
- * @returns {string}
- */
-export function getEffectiveSource() {
-  if (pTransform === 'identity' || !pTransform) return pSourceText;
-  const t = getTransform(pTransform);
-  if (!t) return pSourceText;
-  const srcLetters = [...pSourceText];
-  const transformed = t.apply(srcLetters);
-  return transformed.join('');
+function getMoveTable() {
+  const mode = pRotStep ? pRotStep.moveMode : 'layers';
+  return mode === 'cube' ? deps.PIPE_MOVES : deps.NUM_MOVES;
 }
+
 
 // ── Clear glow ───────────────────────────────────────────────────────
 export function pClearGlow() {
@@ -124,7 +110,6 @@ export function pClearGlow() {
   if (gs.yellowMesh) { deps.clearGlow(gs.yellowMesh); gs.yellowMesh = null; }
   gs.oldPos = null;
 
-  // Sweep all cubies to ensure no stale emissive
   if (deps.cubeGroup) {
     for (const m of deps.cubeGroup.children) {
       if (!m.isMesh || !Array.isArray(m.material)) continue;
@@ -138,11 +123,11 @@ export function pClearGlow() {
   }
 }
 
-// ── Render hooks (for external modules to hook into render cycle) ────
+// ── Render hooks ────────────────────────────────────────────────────
 const renderHooks = [];
 export function addRenderHook(fn) { renderHooks.push(fn); }
 
-// ── Renderers (DOM-dependent — will move to UI modules later) ────────
+// ── Renderers ───────────────────────────────────────────────────────
 export function renderPipeAll() {
   renderPipeCounter();
   renderPipeStepLog();
@@ -154,8 +139,7 @@ export function renderPipeAll() {
 export function renderPipeCounter() {
   const counter = el('pipe-counter');
   if (!counter) return;
-  const effSrc = getEffectiveSource();
-  const total = [...effSrc].length;
+  const total = pPreparedLetters.length;
   counter.textContent = `Letter ${pIdx} / ${total}`;
 }
 
@@ -173,7 +157,7 @@ export function renderPipeAmino() {
   let h = '';
   for (const ch of pOutput) {
     const aa = aminoLookup(ch);
-    if (aa === '*') continue; // silent — skip
+    if (aa === '*') continue;
     h += aa;
   }
   amino.innerHTML = h || '\u2014';
@@ -189,13 +173,12 @@ export function renderPipeStepLog() {
     h += `<div class="${cls}" title="#${s.idx}: ${s.inL}\u2192[${s.digit}]\u2192${s.outL}"><span class="s-in">${s.inL}</span><span class="s-dg">${s.digit}</span><span class="s-out">${s.outL}</span></div>`;
   }
   log.innerHTML = h;
-  // Auto-scroll to show latest step
   log.scrollLeft = log.scrollWidth;
 }
 
 // ── Play / Pause ─────────────────────────────────────────────────────
 export function pPlay() {
-  if (!getEffectiveSource().length || !pRotSeq.length) return;
+  if (!pSourceText.length) return;
   if (deps.stopIdle) deps.stopIdle();
   pPlaying = true;
   const btn = el('pipe-play');
@@ -216,35 +199,38 @@ export function pPause() {
 }
 
 export function pPlayLoop() {
-  if (!pPlaying || pIdx >= [...getEffectiveSource()].length) { pPause(); return; }
+  if (!pPlaying || pIdx >= pPreparedLetters.length) { pPause(); return; }
   pStepFwd(() => { if (pPlaying) pPlayLoop(); });
 }
 
-// ── Step forward ─────────────────────────────────────────────────────
+// ── Step forward (animated, one letter at a time for cube-rotation) ──
 export function pStepFwd(onDone) {
-  // Retry after animation instead of silently dropping callback
-  const isAnimating = deps.cubeGroup && (deps.queueRotation._currentAnim || false);
-  // Use a simpler check: if waitAnimDone is available, always go through it
-  // The actual animation check happens inside waitAnimDone
-
-  const srcChars = [...getEffectiveSource()];
-  if (pIdx >= srcChars.length) { pPause(); return; }
+  if (pIdx >= pPreparedLetters.length) { pPause(); return; }
   if (deps.stopIdle) deps.stopIdle();
 
-  const inputLetter = srcChars[pIdx];
-  const rotIdx = pIdx % pRotSeq.length;
-  const digit = pRotSeq[rotIdx];
+  const rotSeq = pRotStep ? resolveRotSeq(pRotStep) : [];
+  const inputLetter = pPreparedLetters[pIdx];
+  const digit = rotSeq.length ? rotSeq[pIdx % rotSeq.length] : 0;
 
   const stateBefore = deps.readCubeState();
   const posIdx = stateBefore.indexOf(inputLetter);
 
-  if (posIdx === -1 || digit === 0) {
-    // Not found on cube or digit 0 — identity mapping
+  // Apply post-steps after last letter is processed
+  const applyPostIfDone = () => {
+    if (pIdx >= pPreparedLetters.length && pPostSteps.length) {
+      const cubeState = deps.readCubeState();
+      const postResult = runChainPure(cubeState, pOutput, pPostSteps);
+      pOutput = postResult.finalOutput;
+    }
+  };
+
+  if (!pRotStep || posIdx === -1 || digit === 0) {
     const outLetter = posIdx === -1 ? inputLetter : stateBefore[posIdx];
     pInput.push(inputLetter);
     pOutput.push(outLetter);
-    pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit: digit, outL: outLetter, same: inputLetter === outLetter, moved: false });
+    pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: false });
     pIdx++;
+    applyPostIfDone();
     renderPipeAll();
     if (onDone) setTimeout(onDone, 0);
     return;
@@ -253,11 +239,11 @@ export function pStepFwd(onDone) {
   const moveTable = getMoveTable();
   const move = moveTable[String(digit)];
   if (!move) {
-    // Invalid digit — identity
     pInput.push(inputLetter);
     pOutput.push(inputLetter);
     pSteps.push({ idx: pIdx + 1, inL: inputLetter, digit, outL: inputLetter, same: true, moved: false });
     pIdx++;
+    applyPostIfDone();
     renderPipeAll();
     if (onDone) setTimeout(onDone, 0);
     return;
@@ -295,8 +281,6 @@ export function pStepFwd(onDone) {
 
     if (pFlash && deps.glowState) {
       const gs = deps.glowState;
-      // For whole-cube rotations the built-in flash won't trigger (all pieces move),
-      // so manually flash the output letter's mesh yellow
       if (move.layer === null && outLetter !== inputLetter) {
         const outMesh = deps.cubeGroup.children.find(m => m.isMesh && m.userData.letter === outLetter);
         if (outMesh) {
@@ -308,11 +292,11 @@ export function pStepFwd(onDone) {
           });
         }
       }
-      // Clear the blue glow from input letter
       if (gs.ref) { deps.clearGlow(gs.ref); gs.ref = null; }
     }
 
     pIdx++;
+    applyPostIfDone();
     renderPipeAll();
     if (onDone) onDone();
   });
@@ -328,7 +312,6 @@ export function pStepBack() {
   pOutput.pop();
   const step = pSteps.pop();
 
-  // Only undo rotation if this step actually caused one
   if (step && step.moved) {
     const prev = pMoves.pop();
     pStates.pop();
@@ -354,12 +337,13 @@ export function pReset() {
   pMoves = [];
   pStates = [deps.readCubeState()];
   pSteps = [];
+  preparePlayback();
   renderPipeAll();
 }
 
 // ── Run entire pipeline at once (instant, no animation) ──────────────
 export function pRunAll() {
-  if (!getEffectiveSource().length || !pRotSeq.length) return;
+  if (!pSourceText.length || !pChain.length) return;
 
   pPause();
   pClearGlow();
@@ -370,50 +354,55 @@ export function pRunAll() {
     deps.setLetters([...pInitLetters]);
     deps.buildCube();
   }
+
+  // Use runChainPure for instant execution
+  const initialState = deps.readCubeState();
+  const srcLetters = [...pSourceText];
+  const result = runChainPure(initialState, srcLetters, pChain);
+
+  // Sync Three.js cube to final state
+  deps.setLetters(result.finalCubeState);
+  deps.buildCube();
+
+  // Build step log from the cube-rotation intermediate
   pIdx = 0;
   pInput = [];
   pOutput = [];
   pMoves = [];
-  pStates = [deps.readCubeState()];
+  pStates = [initialState];
   pSteps = [];
 
-  const srcChars = [...getEffectiveSource()];
-  const moveTable = getMoveTable();
-
-  for (let i = 0; i < srcChars.length; i++) {
-    const inputLetter = srcChars[i];
-    const digit = pRotSeq[i % pRotSeq.length];
-    const stateBefore = deps.readCubeState();
-    const posIdx = stateBefore.indexOf(inputLetter);
-
-    if (posIdx === -1 || digit === 0) {
-      const outLetter = posIdx === -1 ? inputLetter : stateBefore[posIdx];
-      pInput.push(inputLetter);
-      pOutput.push(outLetter);
-      pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: false });
-      continue;
+  const rotIntermediate = result.intermediates.find(im => im.type === 'cube-rotation');
+  if (rotIntermediate) {
+    const rot = pChain.find(s => s.type === 'cube-rotation');
+    const rotSeqForSteps = rot ? resolveRotSeq(rot) : [];
+    for (let i = 0; i < rotIntermediate.inputLetters.length; i++) {
+      const inL = rotIntermediate.inputLetters[i];
+      const outL = rotIntermediate.outputLetters[i];
+      const digit = rotSeqForSteps.length ? rotSeqForSteps[i % rotSeqForSteps.length] : 0;
+      pInput.push(inL);
+      pOutput.push(outL);
+      pSteps.push({
+        idx: i + 1, inL, digit, outL,
+        same: inL === outL,
+        moved: inL !== outL,
+      });
     }
-
-    const move = moveTable[String(digit)];
-    if (!move) {
-      pInput.push(inputLetter);
-      pOutput.push(inputLetter);
-      pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: inputLetter, same: true, moved: false });
-      continue;
+    pIdx = rotIntermediate.inputLetters.length;
+  } else {
+    const lastIm = result.intermediates.length
+      ? result.intermediates[result.intermediates.length - 1]
+      : null;
+    const stepIn = lastIm ? lastIm.inputLetters : srcLetters;
+    for (let i = 0; i < result.finalOutput.length; i++) {
+      const outL = result.finalOutput[i];
+      const inL = stepIn[i] || '';
+      pInput.push(inL);
+      pOutput.push(outL);
+      pSteps.push({ idx: i + 1, inL, digit: 0, outL, same: inL === outL, moved: false });
     }
-
-    const angle = move.s * Math.PI / 2;
-    pMoves.push({ axis: move.axis, layer: move.layer, angle });
-    deps.applyRotationInstant(move.axis, move.layer, angle);
-
-    const stateAfter = deps.readCubeState();
-    const outLetter = stateAfter[posIdx];
-    pInput.push(inputLetter);
-    pOutput.push(outLetter);
-    pStates.push(stateAfter);
-    pSteps.push({ idx: i + 1, inL: inputLetter, digit, outL: outLetter, same: inputLetter === outLetter, moved: true });
+    pIdx = result.finalOutput.length;
   }
 
-  pIdx = srcChars.length;
   renderPipeAll();
 }

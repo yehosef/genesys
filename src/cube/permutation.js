@@ -132,6 +132,8 @@ for (const [key, move] of Object.entries(PIPE_MOVES)) {
 
 /**
  * Run the entire pipeline using permutation algebra (no Three.js).
+ * @deprecated Use runChainPure from pipeline/chain.js for new code.
+ * Kept for backward compat with tests and batch.js callers that pass raw rotSeq.
  * @param {string[]} initialState - 27-letter array
  * @param {string} sourceText - Hebrew source text
  * @param {number[]} rotSeq - digit sequence
