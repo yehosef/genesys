@@ -483,12 +483,110 @@
   }
   .chain-empty:hover { color: rgba(255,255,255,0.5); }
 
+  /* ── Compare panel (modal) ────────────────────────────────────────── */
+  #compare-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55); z-index: 299; display: none;
+  }
+  #compare-overlay.open { display: block; }
+  #compare-dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,30,0.97); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+    padding: 22px 26px; z-index: 300; display: none;
+    width: 94vw; max-width: 860px; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  #compare-dialog.open { display: block; }
+  #compare-dialog::-webkit-scrollbar { width: 6px; }
+  #compare-dialog::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  .cmp-toolbar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin: 10px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .cmp-toolbar .key-btn { font-size: 11px; padding: 5px 10px; }
+
+  /* Source checklist */
+  #compare-sources {
+    max-height: 200px; overflow-y: auto; margin-bottom: 6px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+    display: flex; flex-wrap: wrap; gap: 2px 16px;
+  }
+  .cmp-cat-group { min-width: 180px; margin-bottom: 4px; }
+  .cmp-cat-header {
+    display: flex; align-items: center; gap: 4px;
+    color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 600;
+    cursor: pointer; padding: 3px 0; letter-spacing: 0.3px;
+  }
+  .cmp-cat-items { padding-left: 18px; }
+  .cmp-src-label {
+    display: flex; align-items: center; gap: 3px;
+    color: rgba(255,255,255,0.55); font-size: 11px; cursor: pointer;
+    padding: 1px 0; transition: color 0.15s;
+  }
+  .cmp-src-label:hover { color: rgba(255,255,255,0.85); }
+  .cmp-src-ref { color: rgba(255,255,255,0.25); font-size: 10px; }
+
+  /* Results area */
+  .cmp-section { margin-top: 14px; }
+  .cmp-section-title {
+    color: rgba(120,180,255,0.8); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+  .cmp-table-wrap {
+    overflow-x: auto; scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .cmp-table {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+    color: rgba(255,255,255,0.7);
+  }
+  .cmp-table th {
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+    padding: 5px 8px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .cmp-table td {
+    padding: 4px 8px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+  .cmp-table tr:hover td { background: rgba(255,255,255,0.04) !important; }
+  .cmp-th-name, .cmp-td-name {
+    text-align: left !important; position: sticky; left: 0;
+    background: rgba(10,10,30,0.97); z-index: 1; max-width: 140px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .cmp-th-name { background: rgba(10,10,30,0.97) !important; }
+
+  /* Similarity matrix */
+  .cmp-sim-table th, .cmp-sim-table td { text-align: center; }
+  .cmp-sim-header {
+    max-width: 60px; overflow: hidden; text-overflow: ellipsis;
+    writing-mode: horizontal-tb; font-size: 9px !important;
+  }
+  .cmp-sim-cell { font-size: 10px; font-family: 'Courier New', monospace; }
+
+  /* Anomalies */
+  .cmp-anomalies { padding: 8px 10px; background: rgba(255,100,100,0.05); border-radius: 8px; }
+  .cmp-anomaly-item {
+    color: rgba(255,255,255,0.6); font-size: 11px; padding: 2px 0;
+    line-height: 1.5;
+  }
+  .cmp-anomaly-item b { color: rgba(255,255,255,0.85); }
+  .cmp-anomaly-val { color: #ff8c42; font-family: 'Courier New', monospace; }
+
   /* ── Responsive tweaks ───────────────────────────────────────────── */
   @media (max-width: 768px) {
     #legend { display: none; }
     #letter-panel { width: 220px; }
     #output-panel { width: 280px; }
     #about-dialog .about-features { grid-template-columns: 1fr; }
+    #compare-dialog { width: 98vw; padding: 14px; }
+    #compare-sources { max-height: 150px; }
   }
   @media (max-width: 480px) {
     .bar-btn { padding: 5px 8px; font-size: 11px; }
@@ -617,6 +715,7 @@
     <button class="pipe-ctrl" id="pipe-reset" title="Reset" style="margin-left:8px;width:auto;padding:0 10px;font-size:11px">↺ Reset</button>
     <button class="pipe-ctrl" id="pipe-run-all" title="Run" style="font-weight:bold;width:auto;padding:0 10px">▶ Run</button>
     <span id="pipe-counter" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:4px">Letter 0 / 0</span>
+    <button class="pipeline-share" id="pipe-compare" title="Compare sources">&#x1F4CA; Compare</button>
     <button class="pipeline-share" id="pipe-share" title="Copy recipe URL">🔗 Share</button>
   </div>
   <!-- hidden elements kept for JS references -->
@@ -666,6 +765,25 @@
   <button class="bar-btn" id="scramble-btn">🎲 Scramble</button>
   <button class="bar-btn" id="pipeline-btn">⚗ Pipeline</button>
   <button class="bar-btn" id="autorotate-btn">⏸ Pause</button>
+</div>
+
+<div id="compare-overlay"></div>
+<div id="compare-dialog">
+  <div class="key-title">
+    <span>Compare Sources</span>
+    <button class="panel-close" id="compare-close">&#10005;</button>
+  </div>
+  <div style="color:rgba(255,255,255,0.35);font-size:10px;margin:2px 0 6px">
+    Run the current pipeline on multiple source texts and compare the amino acid results.
+  </div>
+  <div id="compare-sources"></div>
+  <div class="cmp-toolbar">
+    <button class="key-btn" id="compare-select-all">Select All</button>
+    <button class="key-btn" id="compare-select-none">None</button>
+    <button class="key-btn" id="compare-run" style="background:rgba(80,140,255,0.2);border-color:rgba(80,140,255,0.5);color:rgba(200,220,255,0.9);font-weight:700">Run Comparison</button>
+    <button class="key-btn" id="compare-export" style="display:none;margin-left:auto">Export CSV</button>
+  </div>
+  <div id="compare-results"></div>
 </div>
 
 <div id="about-overlay"></div>

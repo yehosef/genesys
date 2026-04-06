@@ -44,6 +44,7 @@ import { initLetterPanel, renderPanel, openKeyDialog } from './ui/letter-panel.j
 import { initPipelineBar, renderChain } from './ui/pipeline-bar.js';
 import { initMappingDialog, openMappingDialog } from './ui/mapping-dialog.js';
 import { initOutputPanel, renderSequenceStats } from './ui/output-panel.js';
+import { initComparePanel, openComparePanel } from './ui/compare-panel.js';
 
 // ── Raycaster for click-to-rotate ────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -130,7 +131,11 @@ async function boot() {
   });
 
   initOutputPanel();
+  initComparePanel();
   addRenderHook(renderSequenceStats);
+
+  // Compare button in pipeline bar
+  document.getElementById('pipe-compare').addEventListener('click', openComparePanel);
 
   // 5b. About dialog
   const aboutOverlay = document.getElementById('about-overlay');
@@ -263,6 +268,12 @@ async function boot() {
 
     // Escape closes dialogs / panels
     if (key === 'Escape') {
+      const compareDlg = document.getElementById('compare-dialog');
+      if (compareDlg && compareDlg.classList.contains('open')) {
+        compareDlg.classList.remove('open');
+        document.getElementById('compare-overlay').classList.remove('open');
+        return;
+      }
       const aboutDlg = document.getElementById('about-dialog');
       if (aboutDlg && aboutDlg.classList.contains('open')) {
         aboutDlg.classList.remove('open');
