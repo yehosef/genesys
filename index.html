@@ -793,21 +793,24 @@
     <button class="panel-close" id="about-close">✕</button>
   </div>
   <div class="about-subtitle">
-    An experimental tool exploring the intersection of ancient Hebrew letter systems,<br>
-    mathematical permutation, and molecular biology.
+    A mathematical exploration tool at the intersection of sacred Hebrew text,<br>
+    group theory, and molecular biology.
   </div>
 
-  <h3>What is this?</h3>
+  <h3>The Core Thesis</h3>
   <p>
-    GeneSys places the 27 Hebrew letters (22 standard + 5 final forms) onto a 3&times;3&times;3 Rubik's cube,
-    sorted by topology: corners, edges, faces, and center. Through a configurable pipeline, you feed in
-    sacred Hebrew text, apply classical ciphers and cube rotations, and translate the output into amino acid
-    sequences &mdash; the building blocks of proteins.
+    Hebrew sacred text has deep mathematical structure &mdash; gematria, cipher systems, combinatorial
+    properties studied for millennia. Biology has its own text-based encoding: amino acid sequences
+    that fold into functional proteins. GeneSys places a rigorous mathematical engine between these
+    two domains and asks: <b>when you apply systematic, reproducible transformations to Hebrew text,
+    do the resulting amino acid sequences exhibit non-random biological properties?</b>
   </p>
 
   <h3>The Pipeline</h3>
   <p>
-    <b>Source</b> &rarr; choose Hebrew text (the Mezuzah's 713 letters, Genesis 1:1, or your own).<br>
+    <b>Source</b> &rarr; choose from a library of Hebrew texts: Torah passages (Mezuzah, Genesis,
+    Priestly Blessing), tribal blessings (Genesis 49, Deuteronomy 33), kabbalistic texts
+    (72 Names, Ana BeKoach), Psalms, or your own custom text.<br>
     <b>Transform</b> &rarr; chain classical Hebrew ciphers (Atbash, Albam, Avgad, Milui, and more) and
     cube rotations driven by mathematical constants (&pi;, e, &phi;, Fibonacci) or gematria values.<br>
     <b>Mapping</b> &rarr; convert the permuted letters to amino acids and analyze the resulting sequence
@@ -818,36 +821,53 @@
     <div class="about-feature">
       <span class="af-icon">✡</span>
       <span class="af-title">7 Hebrew Ciphers</span>
-      <span class="af-desc">Atbash, Albam, Avgad, Achbi, Ayak Bachar, Milui &mdash; classical transforms from Jewish tradition</span>
+      <span class="af-desc">Atbash, Albam, Avgad, Achbi, Ayak Bachar, Milui &mdash; classical transforms composable in any order</span>
     </div>
     <div class="about-feature">
       <span class="af-icon">🧊</span>
-      <span class="af-title">Permutation Algebra</span>
-      <span class="af-desc">Every cube rotation is a permutation in S&#8322;&#8327;. Sequences compose instantly via matrix multiplication</span>
+      <span class="af-title">Rubik's Cube Engine</span>
+      <span class="af-desc">27 letters on a 3&times;3&times;3 cube &mdash; a permutation group with ~4.3 &times; 10&#185;&#8313; states as transformation space</span>
     </div>
     <div class="about-feature">
       <span class="af-icon">🧬</span>
       <span class="af-title">Amino Acid Mapping</span>
-      <span class="af-desc">22 Hebrew letters map to 20 amino acids + stop codon. Customizable mapping with drag-and-swap</span>
+      <span class="af-desc">22 Hebrew letters map to 20 amino acids + stop. Customizable mapping with drag-and-swap</span>
     </div>
     <div class="about-feature">
-      <span class="af-icon">📊</span>
-      <span class="af-title">Sequence Analysis</span>
-      <span class="af-desc">Composition, molecular weight, charge, GRAVY score, hydrophobicity profile, FASTA export</span>
+      <span class="af-icon">🔬</span>
+      <span class="af-title">Batch Exploration</span>
+      <span class="af-desc">Sweep parameter combinations instantly via permutation algebra. Score outputs for protein-likeness</span>
     </div>
   </div>
 
-  <h3>The Question</h3>
+  <h3>Discover Patterns</h3>
   <p>
-    Is there a meaningful mapping between Hebrew text and biological structures when mediated by
-    systematic permutation? GeneSys doesn't claim answers &mdash; it provides the tools to explore.
-    Share your discoveries via recipe URLs and see what emerges when ancient language meets
-    permutation algebra.
+    The power of GeneSys is comparison: run multiple texts through the same pipeline,
+    or the same text through different transforms, and look for patterns. Do tribal blessings
+    cluster by lineage? Does a specific cipher chain consistently produce protein-like output?
+    The batch runner and permutation algebra make each evaluation instant &mdash; explore
+    thousands of combinations in seconds.
+  </p>
+
+  <h3>The Upgrade Sequence</h3>
+  <p>
+    Somewhere in the vast parameter space &mdash; source text &times; cipher chain &times; cube state
+    &times; rotation sequence &mdash; there may exist combinations that produce output with striking
+    biological properties. Finding them is a search problem, not a mystical one.
+    GeneSys provides the machinery to conduct that search systematically.
+  </p>
+
+  <h3>The Honest Frame</h3>
+  <p>
+    This is creative mathematical exploration, not biological claims. Every step is deterministic
+    and reproducible. Null results are data. We apply group-theoretic transformations, observe
+    patterns, and report what emerges. Share your discoveries via recipe URLs and let the
+    results speak for themselves.
   </p>
 
   <h3>Getting Started</h3>
   <p>
-    Click <b>⚗ Pipeline</b> below to open the transformation pipeline. Choose a source text,
+    Click <b>&#9879; Pipeline</b> below to open the transformation pipeline. Choose a source text,
     add cipher and rotation steps with the <b>+</b> button, then hit <b>&#9654; Run</b> to see
     the cube animate through the entire sequence. The output panel shows the resulting Hebrew text
     and its amino acid translation with protein analysis.
