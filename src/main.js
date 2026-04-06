@@ -136,10 +136,19 @@ async function boot() {
   const aboutOverlay = document.getElementById('about-overlay');
   const aboutDialog = document.getElementById('about-dialog');
   const openAbout = () => { aboutOverlay.classList.add('open'); aboutDialog.classList.add('open'); };
-  const closeAbout = () => { aboutOverlay.classList.remove('open'); aboutDialog.classList.remove('open'); };
+  const closeAbout = () => {
+    aboutOverlay.classList.remove('open');
+    aboutDialog.classList.remove('open');
+    localStorage.setItem('genesys-about-seen', '1');
+  };
   document.getElementById('about-btn').addEventListener('click', openAbout);
   document.getElementById('about-close').addEventListener('click', closeAbout);
   aboutOverlay.addEventListener('click', closeAbout);
+
+  // Auto-open About on first visit
+  if (!localStorage.getItem('genesys-about-seen')) {
+    openAbout();
+  }
 
   // 6. Load from URL hash (recipe, state, or key)
   loadFromHash();
