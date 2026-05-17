@@ -474,6 +474,8 @@ function loadFromHash() {
     const recipe = decodeRecipe(hash);
     if (recipe) {
       setTimeout(() => {
+        setPInitLetters([...getLetters()]);
+        setPInitialized(true);
         applyRecipe(recipe, {
           setPSrcPreset, setPSourceText, setPChain, pReset,
         }, {
@@ -488,10 +490,9 @@ function loadFromHash() {
         if (outPanel) outPanel.classList.add('open');
         const bb = document.getElementById('bottom-bar');
         if (bb) bb.style.display = 'none';
-        setPInitLetters([...getLetters()]);
-        setPInitialized(true);
         renderChain();
         updateExperimentLabel();
+        pRunAll();
       }, 100);
       return true;
     }

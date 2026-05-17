@@ -17,6 +17,8 @@ export const ROT_LABELS = {
 };
 
 // ── Pipeline state ───────────────────────────────────────────────────
+const PLAYBACK_STEP_DWELL_MS = 450;
+
 export let pIdx = 0;
 export let pInput = [];
 export let pOutput = [];
@@ -204,7 +206,12 @@ export function pPause() {
 
 export function pPlayLoop() {
   if (!pPlaying || pIdx >= pPreparedLetters.length) { pPause(); return; }
-  pStepFwd(() => { if (pPlaying) pPlayLoop(); });
+  pStepFwd(() => {
+    if (!pPlaying) return;
+    setTimeout(() => {
+      if (pPlaying) pPlayLoop();
+    }, PLAYBACK_STEP_DWELL_MS);
+  });
 }
 
 // ── Step forward (animated, one letter at a time for cube-rotation) ──
