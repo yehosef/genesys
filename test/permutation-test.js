@@ -274,10 +274,12 @@ import { HEBREW_22 } from '../src/data/hebrew.js';
   assert(d[1].type === 'cube-rotation' && d[1].rotSrc === 'e', 'roundtrip multi-step rotation');
 }
 
-// ── 23. deserializeChain with empty/null returns defaultChain ────────
+// ── 23. deserializeChain with empty/null ─────────────────────────────
 {
+  // empty string = explicit "no transforms" (direct mapping)
   const d1 = deserializeChain('');
-  assert(d1.length === 1 && d1[0].type === 'cube-rotation', 'empty string → default chain');
+  assert(d1.length === 0, 'empty string → empty chain (no transforms)');
+  // null = use default (pi rotation)
   const d2 = deserializeChain(null);
   assert(d2.length === 1 && d2[0].type === 'cube-rotation', 'null → default chain');
 }

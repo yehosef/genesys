@@ -30,13 +30,15 @@ import {
 // ── Pipeline ─────────────────────────────────────────────────────────
 import {
   initEngine, pPlaying, pFlash,
-  pReset,
+  pReset, pRunAll, pPlay, pPause, pClearGlow,
+  pSrcPreset, pSourceText, pChain,
   setPInitLetters, setPInitialized,
-  setPSrcPreset, setPSourceText, setPChain,
+  setPSrcPreset, setPSourceText, setPChain, setPSpeed,
   renderPipeAmino,
   addRenderHook,
 } from './pipeline/engine.js';
-import { decodeRecipe, applyRecipe } from './pipeline/recipe.js';
+import { decodeRecipe, applyRecipe, encodeRecipe } from './pipeline/recipe.js';
+import { getSource } from './data/sources.js';
 
 // ── UI ───────────────────────────────────────────────────────────────
 import { initBottomBar, startIdle, stopIdle } from './ui/bottom-bar.js';
@@ -45,6 +47,8 @@ import { initPipelineBar, renderChain } from './ui/pipeline-bar.js';
 import { initMappingDialog, openMappingDialog } from './ui/mapping-dialog.js';
 import { initOutputPanel, renderSequenceStats } from './ui/output-panel.js';
 import { initComparePanel, openComparePanel } from './ui/compare-panel.js';
+import { initExperimentsGallery } from './ui/experiments.js';
+import { DEMO_EXPERIMENTS } from './data/demos.js';
 
 // ── Raycaster for click-to-rotate ────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -66,6 +70,84 @@ let _glowStateRef = null;
 let _glowStateOldPos = null;
 let _glowStateYellow = null;
 let _glowStateYellowStart = 0;
+
+// ── Load a recipe hash programmatically (pipeline open + auto-run) ───
+function applyRecipeAndRun(recipeHash, { animate = false, caption = null } = {}) {
+  const recipe = decodeRecipe(recipeHash);
+  if (!recipe) return;
+  const pipeBar = document.getElementById('pipeline-bar');
+  const outPanel = document.getElementById('output-panel');
+  stopIdle();
+  clearHighlight();
+  pClearGlow();
+  setPInitLetters([...getLetters()]);
+  setPInitialized(true);
+  applyRecipe(recipe, {
+    setPSrcPreset, setPSourceText, setPChain, pReset,
+  }, {
+    parseKey,
+    setLetters,
+    buildCube: () => buildCube(cubeGroup, getLetters()),
+    renderPanel,
+    getLetters,
+    DEFAULT_LETTERS,
+  });
+  if (pipeBar) pipeBar.classList.add('open');
+  if (outPanel) outPanel.classList.add('open');
+  const bottomBar = document.getElementById('bottom-bar');
+  if (bottomBar) bottomBar.style.display = 'none';
+  renderChain();
+  history.replaceState(null, '', recipeHash);
+  updateExperimentLabel();
+
+  if (animate) {
+    // Show caption if provided
+    if (caption) showCaption(caption);
+    setTimeout(() => {
+      setPSpeed(80);
+      pPlay();
+    }, 400);
+  } else {
+    setTimeout(() => pRunAll(), 300);
+  }
+}
+
+// ── Experiment label in header ──────────────────────────────────────
+function updateExperimentLabel() {
+  const label = document.getElementById('experiment-label');
+  if (!label) return;
+  const src = getSource(pSrcPreset);
+  const srcName = src ? src.name : 'Custom';
+  // Build chain description
+  const chainDesc = pChain.length === 0 ? 'Direct mapping'
+    : pChain.map(s => {
+        if (s.type === 'cipher') return s.transform.charAt(0).toUpperCase() + s.transform.slice(1);
+        if (s.type === 'expansion') return 'Milui';
+        if (s.type === 'cube-rotation') return (s.rotSrc === 'pi' ? 'π' : s.rotSrc === 'phi' ? 'φ' : s.rotSrc === 'e' ? 'e' : s.rotSrc === 'fib' ? 'Fib' : s.rotSrc) + ' rotation';
+        return s.type;
+      }).join(' → ');
+  label.innerHTML = `<span class="exp-source">${srcName}</span> · ${chainDesc}`;
+}
+
+// ── Floating caption ────────────────────────────────────────────────
+function showCaption(text) {
+  const el = document.getElementById('demo-caption');
+  if (!el) return;
+  el.innerHTML = text;
+  el.classList.add('visible');
+  // Fade on any interaction
+  const dismiss = () => {
+    el.classList.remove('visible');
+    window.removeEventListener('pointerdown', dismiss);
+    window.removeEventListener('keydown', dismiss);
+  };
+  setTimeout(() => {
+    window.addEventListener('pointerdown', dismiss, { once: true });
+    window.addEventListener('keydown', dismiss, { once: true });
+  }, 1000);
+  // Auto-fade after 8 seconds
+  setTimeout(() => el.classList.remove('visible'), 8000);
+}
 
 // ── Boot ─────────────────────────────────────────────────────────────
 async function boot() {
@@ -137,6 +219,19 @@ async function boot() {
   // Compare button in pipeline bar
   document.getElementById('pipe-compare').addEventListener('click', openComparePanel);
 
+  // Experiments gallery
+  initExperimentsGallery({
+    demos: DEMO_EXPERIMENTS,
+    loadExperiment: (recipeHash) => {
+      document.getElementById('experiments-overlay')?.classList.remove('open');
+      document.getElementById('experiments-dialog')?.classList.remove('open');
+      applyRecipeAndRun(recipeHash);
+    },
+    getRecipeHash: () => encodeRecipe({
+      pSrcPreset, pSourceText, pChain, toKey, letters: getLetters(),
+    }),
+  });
+
   // 5b. About dialog
   const aboutOverlay = document.getElementById('about-overlay');
   const aboutDialog = document.getElementById('about-dialog');
@@ -156,13 +251,31 @@ async function boot() {
   }
 
   // 6. Load from URL hash (recipe, state, or key)
-  loadFromHash();
+  const loadedFromHash = loadFromHash();
 
   // 7. Set initial highlight (random, not center piece at index 26)
   setHighlight(Math.random() * 26 | 0, getLetters(), cubeGroup, renderPanel);
 
   // 8. Start idle mode
   startIdle();
+
+  // 9a. If no URL hash on initial load, auto-load the Priestly Blessing demo with animation
+  if (!loadedFromHash) {
+    const demo = DEMO_EXPERIMENTS[2]; // Priestly Blessing — π Cipher
+    setTimeout(() => {
+      applyRecipeAndRun(demo.recipe, {
+        animate: true,
+        caption: `<span class="cap-source">${demo.name}</span> <span class="cap-dim">·</span> ${demo.description.split('.')[0]}`,
+      });
+    }, 700);
+  }
+
+  // 9b. Advanced tools toggle
+  const advToggle = document.getElementById('pipe-adv-toggle');
+  const advPanel = document.getElementById('pipeline-advanced');
+  if (advToggle && advPanel) {
+    advToggle.addEventListener('click', () => advPanel.classList.toggle('open'));
+  }
 
   // 9. Set up render loop
   let lastT = performance.now();
@@ -358,9 +471,12 @@ function loadFromHash() {
         });
         if (pipeBar) pipeBar.classList.add('open');
         if (outPanel) outPanel.classList.add('open');
+        const bb = document.getElementById('bottom-bar');
+        if (bb) bb.style.display = 'none';
         setPInitLetters([...getLetters()]);
         setPInitialized(true);
         renderChain();
+        updateExperimentLabel();
       }, 100);
       return true;
     }

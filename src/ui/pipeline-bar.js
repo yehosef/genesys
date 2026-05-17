@@ -119,10 +119,13 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
   });
 
   // Pipeline button toggles pipeline bar + output panel
+  const bottomBar = document.getElementById('bottom-bar');
   document.getElementById('pipeline-btn').addEventListener('click', () => {
     const opening = !pipeBar.classList.contains('open');
     pipeBar.classList.toggle('open');
     outPanel.classList.toggle('open');
+    // Hide bottom bar when pipeline is open
+    if (bottomBar) bottomBar.style.display = opening ? 'none' : '';
     if (opening) {
       panel.classList.remove('open');
       if (!pInitialized) {
@@ -265,8 +268,8 @@ export function initPipelineBar({ stopIdle, buildCube, cubeGroup, renderPanel, w
     const url = location.origin + location.pathname + recipeHash;
     navigator.clipboard.writeText(url).then(() => {
       const btn = document.getElementById('pipe-share');
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = '\uD83D\uDD17 Share', 1500);
+      btn.textContent = '✓';
+      setTimeout(() => btn.textContent = '\uD83D\uDD17', 1500);
     });
   });
 }

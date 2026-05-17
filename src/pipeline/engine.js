@@ -183,7 +183,7 @@ export function pPlay() {
   pPlaying = true;
   const btn = el('pipe-play');
   if (btn) {
-    btn.textContent = '\u23F8';
+    btn.textContent = '\u23F8 Pause';
     btn.classList.add('playing');
   }
   pPlayLoop();
@@ -193,7 +193,7 @@ export function pPause() {
   pPlaying = false;
   const btn = el('pipe-play');
   if (btn) {
-    btn.textContent = '\u25B6';
+    btn.textContent = '\u25B6 Play';
     btn.classList.remove('playing');
   }
 }
@@ -281,7 +281,7 @@ export function pStepFwd(onDone) {
 
     if (pFlash && deps.glowState) {
       const gs = deps.glowState;
-      if (move.layer === null && outLetter !== inputLetter) {
+      if (outLetter !== inputLetter) {
         const outMesh = deps.cubeGroup.children.find(m => m.isMesh && m.userData.letter === outLetter);
         if (outMesh) {
           if (gs.yellowMesh) deps.clearGlow(gs.yellowMesh);
@@ -343,7 +343,7 @@ export function pReset() {
 
 // ── Run entire pipeline at once (instant, no animation) ──────────────
 export function pRunAll() {
-  if (!pSourceText.length || !pChain.length) return;
+  if (!pSourceText.length) return;
 
   pPause();
   pClearGlow();

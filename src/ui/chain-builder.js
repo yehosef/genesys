@@ -7,6 +7,7 @@ import { getTransform } from '../pipeline/transforms.js';
 import { ROT_LABELS, pChain, setPChain, pReset } from '../pipeline/engine.js';
 import { addStep, removeStep, moveStep } from '../pipeline/chain.js';
 import { LAYER_LABELS, CUBE_LABELS } from '../cube/state.js';
+import { TRANSFORM_PRESETS } from '../data/demos.js';
 
 let _openKeyDialog = null;
 let _openLetterPanel = null;
@@ -433,6 +434,27 @@ export function initChainBuilder({ openKeyDialog, openLetterPanel }) {
   ddConfig = document.getElementById('dd-chip-config');
 
   buildAddStepMenu();
+
+  // Populate preset select
+  const presetSelect = document.getElementById('preset-select');
+  if (presetSelect) {
+    for (const p of TRANSFORM_PRESETS) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      presetSelect.appendChild(opt);
+    }
+    presetSelect.addEventListener('change', () => {
+      const preset = TRANSFORM_PRESETS.find(p => p.id === presetSelect.value);
+      if (!preset) return;
+      setPChain(preset.chain.map(s => ({ ...s })));
+      closeAllChainDropdowns();
+      activeChipIdx = -1;
+      renderChain();
+      pReset();
+      presetSelect.value = ''; // reset to placeholder
+    });
+  }
 
   // [+] button toggles add-step popover
   addBtn.addEventListener('click', (e) => {

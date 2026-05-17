@@ -4,7 +4,7 @@
 
 import { SOURCE_PRESETS, SOURCE_DISPLAY, getSource, getSourceText, getSourceDisplay } from './source.js';
 import { toAminoKey, parseAminoKey, DEFAULT_AMINO_KEY } from '../data/amino.js';
-import { serializeChain, deserializeChain } from './chain.js';
+import { serializeChain, deserializeChain, defaultChain } from './chain.js';
 
 /**
  * Encode pipeline state as a v2 URL hash.
@@ -51,7 +51,7 @@ function decodeV2(raw) {
     if (k === 'chain') recipe.chain = deserializeChain(v);
     if (k === 'amap') recipe.amap = v;
   }
-  if (!recipe.chain) recipe.chain = deserializeChain('');
+  if (!recipe.chain) recipe.chain = defaultChain(); // old URLs with no chain: key → pi rotation
   return recipe;
 }
 

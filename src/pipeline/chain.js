@@ -176,7 +176,11 @@ export function serializeChain(chain) {
 }
 
 export function deserializeChain(str) {
-  if (!str) return defaultChain();
+  // Empty string = explicitly no transforms (direct mapping)
+  // null/undefined = use default (pi rotation) — callers should pass defaultChain() for that
+  if (str == null) return defaultChain();
+  if (str === '') return [];
+
   const parts = str.split(',');
   const chain = [];
 
@@ -211,6 +215,6 @@ export function deserializeChain(str) {
     }
   }
 
-  return chain.length ? chain : defaultChain();
+  return chain;
 }
 

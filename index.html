@@ -16,22 +16,37 @@
 
   #hud {
     position: absolute; top: 0; left: 0; right: 0;
-    display: flex; justify-content: space-between; align-items: flex-start;
-    padding: 18px 22px; pointer-events: none;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 18px; pointer-events: none; z-index: 80;
   }
-  #title { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 0 20px rgba(100,160,255,0.8); }
-  #title .tagline { font-size: 11px; display: block; color: rgba(255,255,255,0.55); font-weight: 400; letter-spacing: 0.5px; margin-top: 3px; }
-  #title .hint { font-size: 10px; display: block; color: rgba(255,255,255,0.25); font-weight: 400; letter-spacing: 0.5px; margin-top: 2px; }
+  #title { color: #fff; font-size: 18px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 0 20px rgba(100,160,255,0.8); flex-shrink: 0; display: flex; align-items: baseline; gap: 8px; }
+  #title .tagline { display: none; }
+  #title .hint { display: none; }
+  #title .geula-link {
+    font-size: 10px; font-weight: 400; letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.4); text-decoration: none;
+    pointer-events: all; transition: color 0.2s;
+    text-shadow: none;
+  }
+  #title .geula-link:hover { color: rgba(120,180,255,0.9); }
+  #title .geula-link b { color: rgba(180,210,255,0.7); font-weight: 600; }
+  #experiment-label {
+    flex: 1; text-align: center; pointer-events: all;
+    color: rgba(255,255,255,0.5); font-size: 12px; letter-spacing: 0.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 0 16px; cursor: default;
+  }
+  #experiment-label .exp-source { color: rgba(255,255,255,0.35); }
+  #hud-actions { display: flex; gap: 6px; pointer-events: all; flex-shrink: 0; }
+  #hud-actions .hud-btn {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4); width: 30px; height: 30px; border-radius: 8px;
+    cursor: pointer; font-size: 13px; display: flex; align-items: center;
+    justify-content: center; transition: all 0.2s;
+  }
+  #hud-actions .hud-btn:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
 
-  #legend {
-    background: rgba(10,10,30,0.75); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px; padding: 12px 16px; font-size: 11px;
-    color: rgba(255,255,255,0.7); line-height: 1.8;
-    backdrop-filter: blur(6px); pointer-events: all;
-    opacity: 0.35; transition: opacity 0.3s;
-  }
-  #legend:hover { opacity: 1; }
-  #legend b { color: #fff; }
+  #legend { display: none; }
   kbd { background: rgba(255,255,255,0.12); border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 10px; }
 
   #letter-sequence {
@@ -49,9 +64,24 @@
     from { opacity: 0; color: #ffaa00; transform: scale(1.4); }
     to   { opacity: 1; color: rgba(255,255,255,0.8); transform: scale(1); }
   }
+  /* ── Floating demo caption ─────────────────────────────────── */
+  #demo-caption {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,10,30,0.7); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    padding: 10px 20px; color: rgba(255,255,255,0.6); font-size: 13px;
+    letter-spacing: 0.5px; text-align: center; pointer-events: none;
+    z-index: 50; opacity: 0; transition: opacity 0.6s ease;
+    white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  #demo-caption.visible { opacity: 1; }
+  #demo-caption .cap-source { color: rgba(255,255,255,0.85); font-weight: 600; }
+  #demo-caption .cap-dim { color: rgba(255,255,255,0.3); }
+
   #bottom-bar {
     position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 10px; align-items: center;
+    display: flex; gap: 10px; align-items: center; z-index: 60;
+    transition: opacity 0.3s;
   }
   .bar-btn {
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
@@ -237,29 +267,33 @@
   .source-item.active .source-name { color: #fff; }
   .source-ref { color: rgba(255,255,255,0.3); font-size: 10px; line-height: 1.3; }
 
-  /* ── Output panel (right side) ─────────────────────────────── */
+  /* ── Output panel (bottom strip) ───────────────────────────── */
   #output-panel {
-    position: absolute; top: 0; right: 0; bottom: 0; width: 340px;
+    position: absolute; left: 0; right: 0; bottom: 0;
     background: rgba(10,10,30,0.94); backdrop-filter: blur(12px);
-    border-left: 1px solid rgba(255,255,255,0.1);
-    transform: translateX(100%); transition: transform 0.3s ease;
-    z-index: 100; display: flex; flex-direction: column;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    transform: translateY(100%); transition: transform 0.3s ease;
+    z-index: 95; display: flex; flex-direction: column;
+    max-height: 40vh;
   }
-  #output-panel.open { transform: translateX(0); }
-  .output-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-  .output-section { padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  #output-panel.open { transform: translateY(0); }
+  .output-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+  .output-section { padding: 6px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .output-row { display: flex; gap: 0; }
+  .output-row > .output-section { flex: 1; min-width: 0; border-right: 1px solid rgba(255,255,255,0.04); }
+  .output-row > .output-section:last-child { border-right: none; }
   .output-text {
     direction: rtl; font-family: 'Frank Ruhl Libre', serif;
     font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.4;
-    max-height: 52px; overflow-y: auto; word-break: break-all;
+    max-height: 48px; overflow-y: auto; word-break: break-all;
     padding: 4px 6px; background: rgba(255,255,255,0.03); border-radius: 4px;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
   }
   .amino-text {
-    font-family: 'Courier New', monospace; font-size: 14px;
-    color: rgba(120,200,255,0.7); line-height: 1.5; letter-spacing: 1.5px;
-    flex: 1; overflow-y: auto; word-break: break-all;
-    padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 4px;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    color: rgba(120,200,255,0.7); line-height: 1.5; letter-spacing: 1px;
+    max-height: 48px; overflow-y: auto; word-break: break-all;
+    padding: 4px 6px; background: rgba(255,255,255,0.03); border-radius: 4px;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
   }
   .amino-text .stop { color: #ff6b6b; }
@@ -370,6 +404,15 @@
     position: relative; display: flex; align-items: center; gap: 4px;
     flex: 1; min-width: 0;
   }
+  .preset-select {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6); padding: 3px 6px; border-radius: 5px;
+    font-family: inherit; font-size: 10px; cursor: pointer;
+    flex-shrink: 0; max-width: 100px;
+  }
+  .preset-select:focus { outline: none; border-color: rgba(80,140,255,0.5); }
+  .preset-select option { background: #0a0a18; color: #ccc; }
+
   .chain-chips {
     display: flex; align-items: center; gap: 3px;
     flex-wrap: wrap; min-height: 32px;
@@ -414,19 +457,40 @@
   }
   #pipeline-btn:hover { background: rgba(80,140,255,0.25); border-color: rgba(80,140,255,0.6); color: #fff; }
 
-  /* ── Run button accent ───────────────────────────────────────────── */
-  #pipe-run-all {
+  /* ── Play button accent ──────────────────────────────────────────── */
+  #pipe-play {
     background: rgba(80,140,255,0.2); border-color: rgba(80,140,255,0.5);
     color: rgba(200,220,255,0.9); font-weight: 700;
   }
-  #pipe-run-all:hover { background: rgba(80,140,255,0.35); border-color: rgba(80,140,255,0.7); color: #fff; }
-
-  /* ── About button ────────────────────────────────────────────────── */
-  #about-btn {
-    background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.4);
+  #pipe-play:hover { background: rgba(80,140,255,0.35); border-color: rgba(80,140,255,0.7); color: #fff; }
+  #pipe-play.playing {
+    background: rgba(255,170,0,0.2); border-color: rgba(255,170,0,0.5);
+    color: rgba(255,220,160,0.9);
   }
-  #about-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+  #pipe-play.playing:hover { background: rgba(255,170,0,0.3); }
+
+  /* ── Run-all button ─────────────────────────────────────────────── */
+  #pipe-run-all { font-weight: 600; }
+
+  /* ── Advanced tools row ─────────────────────────────────────────── */
+  .pipeline-advanced {
+    display: none; gap: 6px; padding: 4px 16px 6px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .pipeline-advanced.open { display: flex; }
+  .pipe-adv-btn {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.4); padding: 3px 10px; border-radius: 5px;
+    cursor: pointer; font-size: 10px; font-family: inherit; transition: all 0.15s;
+  }
+  .pipe-adv-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+  .pipe-adv-toggle {
+    background: none; border: none; color: rgba(255,255,255,0.2);
+    cursor: pointer; font-size: 9px; padding: 0 4px; transition: color 0.2s;
+  }
+  .pipe-adv-toggle:hover { color: rgba(255,255,255,0.5); }
+
+  /* ── About button (in HUD header) ─────────────────────────────────── */
 
   /* ── About overlay ───────────────────────────────────────────────── */
   #about-overlay {
@@ -579,19 +643,112 @@
   .cmp-anomaly-item b { color: rgba(255,255,255,0.85); }
   .cmp-anomaly-val { color: #ff8c42; font-family: 'Courier New', monospace; }
 
+  /* ── Experiments gallery ─────────────────────────────────────────── */
+  #experiments-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 299; display: none;
+  }
+  #experiments-overlay.open { display: block; }
+  #experiments-dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,10,30,0.97); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+    padding: 22px 26px; z-index: 300; display: none;
+    width: 90vw; max-width: 700px; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  #experiments-dialog.open { display: block; }
+  .exp-section-title {
+    color: rgba(120,180,255,0.8); font-size: 11px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    margin: 16px 0 8px; padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .exp-section-title:first-child { margin-top: 0; }
+  .exp-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .exp-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 12px 14px; transition: all 0.15s;
+  }
+  .exp-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); }
+  .exp-card-icon { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+  .exp-card-body { flex: 1; min-width: 0; }
+  .exp-card-name {
+    color: #fff; font-size: 13px; font-weight: 600;
+    line-height: 1.3; margin-bottom: 4px;
+  }
+  .exp-card-desc {
+    color: rgba(255,255,255,0.45); font-size: 11px; line-height: 1.5;
+    margin-bottom: 6px;
+  }
+  .exp-card-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+  .exp-tag {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5); font-size: 9px; letter-spacing: 0.5px;
+    padding: 1px 6px; border-radius: 4px;
+  }
+  .exp-tag.chain {
+    background: rgba(80,140,255,0.12); border-color: rgba(80,140,255,0.25);
+    color: rgba(120,180,255,0.8);
+  }
+  .exp-load-btn {
+    background: rgba(80,140,255,0.15); border: 1px solid rgba(80,140,255,0.3);
+    color: rgba(180,210,255,0.9); padding: 5px 12px; border-radius: 6px;
+    cursor: pointer; font-size: 11px; font-family: inherit; font-weight: 600;
+    flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+  }
+  .exp-load-btn:hover { background: rgba(80,140,255,0.3); border-color: rgba(80,140,255,0.5); color: #fff; }
+  .exp-card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .exp-del-btn {
+    background: rgba(255,100,100,0.08); border: 1px solid rgba(255,100,100,0.15);
+    color: rgba(255,100,100,0.5); width: 26px; height: 22px; border-radius: 5px;
+    cursor: pointer; font-size: 11px; font-family: inherit; transition: all 0.15s;
+  }
+  .exp-del-btn:hover { background: rgba(255,100,100,0.2); color: #ff6b6b; }
+  .exp-save-row {
+    display: flex; gap: 8px; margin-bottom: 10px;
+  }
+  .exp-save-row input {
+    flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: inherit; font-size: 12px;
+    padding: 6px 10px; border-radius: 6px;
+  }
+  .exp-save-row input:focus { outline: none; border-color: rgba(80,140,255,0.5); }
+  .exp-save-row input::placeholder { color: rgba(255,255,255,0.25); }
+  #exp-save-btn {
+    background: rgba(80,140,255,0.15); border: 1px solid rgba(80,140,255,0.3);
+    color: rgba(180,210,255,0.9); padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 11px; font-family: inherit; font-weight: 600;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  #exp-save-btn:hover { background: rgba(80,140,255,0.3); color: #fff; }
+  @media (max-width: 600px) { .exp-grid { grid-template-columns: 1fr; } }
+
   /* ── Responsive tweaks ───────────────────────────────────────────── */
   @media (max-width: 768px) {
-    #legend { display: none; }
     #letter-panel { width: 220px; }
-    #output-panel { width: 280px; }
+    #output-panel { max-height: 50vh; }
+    .output-row { flex-direction: column; }
+    .output-row > .output-section { border-right: none; }
     #about-dialog .about-features { grid-template-columns: 1fr; }
     #compare-dialog { width: 98vw; padding: 14px; }
     #compare-sources { max-height: 150px; }
+    .pipeline-stages { padding: 6px 10px; gap: 3px; }
+    #experiment-label { font-size: 10px; padding: 0 8px; }
+    #demo-caption { font-size: 11px; padding: 8px 14px; }
   }
   @media (max-width: 480px) {
     .bar-btn { padding: 5px 8px; font-size: 11px; }
-    #title { font-size: 16px; }
-    #output-panel { width: 100%; }
+    #title { font-size: 14px; }
+    #hud { padding: 8px 12px; }
+    .pipeline-pill { min-width: 56px; padding: 4px 8px; }
+    .pipe-ctrl { height: 26px; font-size: 10px; padding: 0 6px; }
+    #demo-caption { white-space: normal; max-width: 85vw; font-size: 11px; }
+    .step-log { min-height: 50px; }
   }
 </style>
 </head>
@@ -600,15 +757,11 @@
 <div id="hud">
   <div id="title">
     GeneSys
-    <span class="tagline">Hebrew letter permutation meets genetic coding</span>
-    <span class="hint">Drag to orbit · Click face to rotate · Shift+click = highlight</span>
+    <a class="geula-link" href="https://geula-project.pages.dev/" target="_blank" rel="noopener">part of <b>The Geula Project</b> ↗</a>
   </div>
-  <div id="legend">
-    <b>Layers</b><br>
-    <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> x · <kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> y · <kbd>7</kbd><kbd>8</kbd><kbd>9</kbd> z<br>
-    <b>Cube</b><br>
-    <kbd>⌘</kbd>+<kbd>1</kbd><kbd>2</kbd> x · <kbd>3</kbd><kbd>4</kbd> y · <kbd>5</kbd><kbd>6</kbd> z<br>
-    <kbd>Shift</kbd> = reverse · <kbd>Shift</kbd>+click = highlight
+  <div id="experiment-label"></div>
+  <div id="hud-actions">
+    <button class="hud-btn" id="about-btn" title="About">ℹ</button>
   </div>
 </div>
 
@@ -701,6 +854,9 @@
     </div>
     <span class="pipeline-arrow">→</span>
     <div class="permutation-zone" id="permutation-zone">
+      <select class="preset-select" id="preset-select" title="Quick presets">
+        <option value="" disabled>Presets…</option>
+      </select>
       <div class="chain-chips" id="chain-chips"></div>
       <button class="chain-add" id="chain-add" title="Add step">＋</button>
       <div class="stage-dropdown" id="dd-add-step"></div>
@@ -712,57 +868,59 @@
       <span class="pill-label">Mapping</span>
       <span class="pill-sub" id="pill-sub-map">Default</span>
     </div>
-    <button class="pipe-ctrl" id="pipe-reset" title="Reset" style="margin-left:8px;width:auto;padding:0 10px;font-size:11px">↺ Reset</button>
-    <button class="pipe-ctrl" id="pipe-run-all" title="Run" style="font-weight:bold;width:auto;padding:0 10px">▶ Run</button>
+    <button class="pipe-ctrl" id="pipe-play" title="Play / Pause" style="margin-left:8px;width:auto;padding:0 12px">▶ Play</button>
+    <button class="pipe-ctrl" id="pipe-run-all" title="Run All (instant)" style="width:auto;padding:0 10px;font-size:11px">⏭ Run All</button>
+    <button class="pipe-ctrl" id="pipe-reset" title="Reset" style="width:auto;padding:0 10px;font-size:11px">↺</button>
     <span id="pipe-counter" style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:4px">Letter 0 / 0</span>
-    <button class="pipeline-share" id="pipe-compare" title="Compare sources">&#x1F4CA; Compare</button>
-    <button class="pipeline-share" id="pipe-share" title="Copy recipe URL">🔗 Share</button>
+    <button class="pipeline-share" id="pipe-experiments" title="Experiments gallery">🧪</button>
+    <button class="pipeline-share" id="pipe-compare" title="Compare sources">📊</button>
+    <button class="pipeline-share" id="pipe-share" title="Copy recipe URL">🔗</button>
+    <button class="pipe-adv-toggle" id="pipe-adv-toggle" title="Advanced tools">⋯</button>
   </div>
-  <!-- hidden elements kept for JS references -->
-  <div style="display:none">
-    <button id="pipe-play">▶</button>
-    <button id="pipe-back">⏪</button>
-    <button id="pipe-fwd">⏩</button>
-    <input type="range" id="pipe-speed" min="50" max="500" value="200" step="25">
-    <span id="pipe-speed-val">200ms</span>
-    <input type="checkbox" id="pipe-flash" checked>
+  <div class="pipeline-advanced" id="pipeline-advanced">
+    <button class="pipe-adv-btn" id="pipe-fwd" title="Step forward">⏩ Step</button>
+    <button class="pipe-adv-btn" id="pipe-back" title="Step back">⏪ Back</button>
+    <label class="pipe-adv-btn" style="display:flex;align-items:center;gap:4px">
+      Speed <input type="range" id="pipe-speed" min="50" max="500" value="200" step="25" style="width:60px;height:12px"> <span id="pipe-speed-val" style="min-width:30px">200ms</span>
+    </label>
+    <label class="pipe-adv-btn" style="display:flex;align-items:center;gap:4px">
+      <input type="checkbox" id="pipe-flash" checked style="margin:0"> Flash
+    </label>
+    <span style="flex:1"></span>
+    <button class="pipe-adv-btn" id="letters-btn">✏ Letters</button>
+    <button class="pipe-adv-btn" id="key-btn">🔑 Key</button>
+    <button class="pipe-adv-btn" id="scramble-btn">🎲 Scramble</button>
   </div>
 </div>
 
 <div id="output-panel">
-  <div class="panel-header">
-    <span>Output</span>
-    <button class="panel-close" id="output-close">✕</button>
-  </div>
   <div class="output-body">
-    <div class="output-section">
-      <div class="group-title">Step Log · <span style="color:rgba(255,255,255,0.25)">input → [digit] → output</span></div>
+    <div class="output-section" style="padding:4px 14px">
+      <div class="group-title" style="margin-bottom:2px">Step Log · <span style="color:rgba(255,255,255,0.25)">input → [digit] → output</span></div>
       <div class="step-log" id="step-log"></div>
     </div>
-    <div class="output-section">
-      <div class="group-title">Hebrew Output</div>
-      <div class="output-text" id="output-result"></div>
-    </div>
-    <div class="output-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
-      <div class="group-title">Amino Acids</div>
-      <div class="amino-text" id="output-amino">—</div>
-    </div>
-    <div class="output-section" id="seq-stats-section" style="display:none">
-      <div class="group-title">Sequence Properties</div>
-      <div class="seq-stats" id="seq-stats" style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7"></div>
-      <div style="margin-top:8px;display:flex;gap:6px">
-        <button class="panel-btn" id="export-fasta" style="flex:0 0 auto;padding:4px 10px;font-size:11px">Export FASTA</button>
+    <div class="output-row">
+      <div class="output-section">
+        <div class="group-title">Hebrew Output</div>
+        <div class="output-text" id="output-result"></div>
+      </div>
+      <div class="output-section" style="flex:1.5">
+        <div class="group-title">Amino Acids</div>
+        <div class="amino-text" id="output-amino">—</div>
+      </div>
+      <div class="output-section" id="seq-stats-section" style="display:none">
+        <div class="group-title">Properties</div>
+        <div class="seq-stats" id="seq-stats" style="font-size:10px;color:rgba(255,255,255,0.5);line-height:1.6"></div>
+        <button class="panel-btn" id="export-fasta" style="padding:2px 8px;font-size:10px;margin-top:4px">FASTA</button>
       </div>
     </div>
   </div>
 </div>
 
+<div id="demo-caption"></div>
 <div id="letter-sequence"></div>
 <div id="bottom-bar">
-  <button class="bar-btn" id="about-btn">ℹ About</button>
-  <button class="bar-btn" id="letters-btn">✏ Letters</button>
-  <button class="bar-btn" id="key-btn">🔑 Key</button>
-  <button class="bar-btn" id="scramble-btn">🎲 Scramble</button>
+  <button class="bar-btn" id="experiments-btn">🧪 Experiments</button>
   <button class="bar-btn" id="pipeline-btn">⚗ Pipeline</button>
   <button class="bar-btn" id="autorotate-btn">⏸ Pause</button>
 </div>
@@ -786,6 +944,28 @@
   <div id="compare-results"></div>
 </div>
 
+<div id="experiments-overlay"></div>
+<div id="experiments-dialog">
+  <div class="key-title">
+    <span>🧪 Experiments</span>
+    <button class="panel-close" id="experiments-close">✕</button>
+  </div>
+
+  <div class="exp-section-title">Demo Examples</div>
+  <div class="exp-grid" id="exp-demo-grid"></div>
+
+  <div id="exp-saved-section" style="display:none">
+    <div class="exp-section-title">Your Experiments</div>
+    <div class="exp-grid" id="exp-saved-grid"></div>
+  </div>
+
+  <div class="exp-section-title">Save Current Pipeline</div>
+  <div class="exp-save-row">
+    <input type="text" id="exp-name-input-main" placeholder="Name this experiment…">
+    <button id="exp-save-btn-main">Save</button>
+  </div>
+</div>
+
 <div id="about-overlay"></div>
 <div id="about-dialog">
   <div class="key-title">
@@ -795,6 +975,12 @@
   <div class="about-subtitle">
     A mathematical exploration tool at the intersection of sacred Hebrew text,<br>
     group theory, and molecular biology.
+  </div>
+
+  <div style="background:rgba(80,140,255,0.08);border:1px solid rgba(80,140,255,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:rgba(220,230,255,0.75);font-size:12px;line-height:1.6">
+    GeneSys is one experiment within
+    <a href="https://geula-project.pages.dev/" target="_blank" rel="noopener" style="color:rgba(150,190,255,0.95);font-weight:600;text-decoration:none">The Geula Project ↗</a>
+    &mdash; a collection of tools exploring Hebrew text, mathematics, and meaning.
   </div>
 
   <h3>The Core Thesis</h3>
@@ -874,7 +1060,8 @@
   </p>
 
   <div class="about-footer">
-    Built with Three.js &middot; Pure client-side, no server required &middot;
+    Part of <a href="https://geula-project.pages.dev/" target="_blank" rel="noopener">The Geula Project</a> &middot;
+    Built with Three.js &middot; Pure client-side &middot;
     <a href="https://github.com/yehosef" target="_blank">GitHub</a>
   </div>
 </div>

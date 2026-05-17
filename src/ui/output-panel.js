@@ -58,11 +58,14 @@ export function initOutputPanel() {
   const pipeBar = document.getElementById('pipeline-bar');
   const outPanel = document.getElementById('output-panel');
 
-  document.getElementById('output-close').addEventListener('click', () => {
-    if (pPlaying) pPause();
-    pipeBar.classList.remove('open');
-    outPanel.classList.remove('open');
-  });
+  const closeBtn = document.getElementById('output-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (pPlaying) pPause();
+      pipeBar.classList.remove('open');
+      outPanel.classList.remove('open');
+    });
+  }
 
   // FASTA export button
   document.getElementById('export-fasta').addEventListener('click', () => {
