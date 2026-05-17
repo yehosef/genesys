@@ -50,7 +50,7 @@ import { initComparePanel, openComparePanel } from './ui/compare-panel.js';
 import { initExperimentsGallery } from './ui/experiments.js';
 import { DEMO_EXPERIMENTS } from './data/demos.js';
 
-const INITIAL_DEMO_ROTATION_MS = 500;
+const INITIAL_DEMO_ROTATION_MS = 750;
 
 // ── Raycaster for click-to-rotate ────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -171,7 +171,7 @@ async function boot() {
 
   // 2. Initialize cube modules
   initState(cubeGroup, rebuildCube, renderPanel);
-  initRotation(cubeGroup, () => _glowStateRef);
+  initRotation(cubeGroup, () => _glowStateRef || glowMeshRef);
 
   // 3. Build initial cube
   buildCube(cubeGroup, getLetters());
