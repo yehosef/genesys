@@ -1,5 +1,11 @@
 import * as THREE from 'three';
-import { glowOldPos as _glowOldPos, yellowFlashMesh as _yfm, clearGlow } from './highlight.js';
+import {
+  yellowFlashMesh as sharedYellowFlashMesh,
+  yellowFlashStart as sharedYellowFlashStart,
+  setYellowFlashMesh as setSharedYellowFlashMesh,
+  setYellowFlashStart as setSharedYellowFlashStart,
+  clearGlow,
+} from './highlight.js';
 import { INNER_MAT } from './build.js';
 
 // ── Rotation queue & animation state ─────────────────────────────────
@@ -7,18 +13,15 @@ export const queue = [];
 export let currentAnim = null;
 
 // Mutable highlight-tracking state managed by processQueue/tickAnim.
-// We keep local refs that mirror highlight.js exported state, updated via setters.
 let glowOldPos = null;
-let yellowFlashMesh = null;
-let yellowFlashStart = 0;
 
 // Accessors so external code can read/write these
 export function getGlowOldPos() { return glowOldPos; }
 export function setGlowOldPos(v) { glowOldPos = v; }
-export function getYellowFlashMesh() { return yellowFlashMesh; }
-export function setYellowFlashMesh(v) { yellowFlashMesh = v; }
-export function getYellowFlashStart() { return yellowFlashStart; }
-export function setYellowFlashStart(v) { yellowFlashStart = v; }
+export function getYellowFlashMesh() { return sharedYellowFlashMesh; }
+export function setYellowFlashMesh(v) { setSharedYellowFlashMesh(v); }
+export function getYellowFlashStart() { return sharedYellowFlashStart; }
+export function setYellowFlashStart(v) { setSharedYellowFlashStart(v); }
 
 /**
  * Enqueue a 90-degree rotation.
@@ -30,6 +33,38 @@ export function setYellowFlashStart(v) { yellowFlashStart = v; }
 export function queueRotation(axis, layer, angle, dur) {
   queue.push({ axis, layer, angle, dur: dur ?? 200 });
   if (!currentAnim) processQueue();
+}
+
+/**
+ * Stop any queued/current rotations. This is used before rebuilding the cube,
+ * because an in-flight pivot owns cubies that are no longer direct children of
+ * cubeGroup; letting its callback continue after a rebuild can make old and new
+ * mesh states fight on screen.
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.disposeMaterials=false] dispose materials held by
+ *   cubies currently attached to the transient pivot.
+ */
+export function cancelRotations({ disposeMaterials = false } = {}) {
+  queue.length = 0;
+
+  if (currentAnim) {
+    if (disposeMaterials) {
+      for (const mesh of currentAnim.cubies) {
+        if (!mesh || !Array.isArray(mesh.material)) continue;
+        mesh.material.forEach(m => { if (m !== INNER_MAT) m.dispose(); });
+      }
+    }
+    if (currentAnim.pivot && currentAnim.pivot.parent) {
+      currentAnim.pivot.parent.remove(currentAnim.pivot);
+    }
+  }
+
+  currentAnim = null;
+  glowOldPos = null;
+  if (sharedYellowFlashMesh) clearGlow(sharedYellowFlashMesh);
+  setSharedYellowFlashMesh(null);
+  setSharedYellowFlashStart(0);
 }
 
 // Store reference to cubeGroup — set by init call from main
@@ -122,9 +157,9 @@ export function tickAnim(dt, pipeBar) {
         );
         if (replacer) {
           // Clear previous flash if still running
-          if (yellowFlashMesh) clearGlow(yellowFlashMesh);
-          yellowFlashMesh = replacer;
-          yellowFlashStart = performance.now();
+          if (sharedYellowFlashMesh) clearGlow(sharedYellowFlashMesh);
+          setSharedYellowFlashMesh(replacer);
+          setSharedYellowFlashStart(performance.now());
           replacer.material.forEach(m => {
             if (m !== INNER_MAT) {
               m.emissive = new THREE.Color(0xffaa00);

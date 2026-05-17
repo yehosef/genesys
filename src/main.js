@@ -11,7 +11,7 @@ import { scene, camera, renderer, controls, cubeGroup } from './cube/scene.js';
 import { buildCube, INNER_MAT } from './cube/build.js';
 import {
   initRotation, queueRotation, tickAnim,
-  waitAnimDone, currentAnim, queue,
+  waitAnimDone, cancelRotations, currentAnim, queue,
 } from './cube/rotation.js';
 import {
   initState, letters, getLetters, setLetters,
@@ -71,6 +71,11 @@ let _glowStateOldPos = null;
 let _glowStateYellow = null;
 let _glowStateYellowStart = 0;
 
+function rebuildCube() {
+  cancelRotations({ disposeMaterials: true });
+  buildCube(cubeGroup, getLetters());
+}
+
 // ── Load a recipe hash programmatically (pipeline open + auto-run) ───
 function applyRecipeAndRun(recipeHash, { animate = false, caption = null } = {}) {
   const recipe = decodeRecipe(recipeHash);
@@ -87,7 +92,7 @@ function applyRecipeAndRun(recipeHash, { animate = false, caption = null } = {})
   }, {
     parseKey,
     setLetters,
-    buildCube: () => buildCube(cubeGroup, getLetters()),
+    buildCube: rebuildCube,
     renderPanel,
     getLetters,
     DEFAULT_LETTERS,
@@ -155,7 +160,7 @@ async function boot() {
   await document.fonts.load("bold 140px 'Frank Ruhl Libre'").catch(() => {});
 
   // 2. Initialize cube modules
-  initState(cubeGroup, buildCube, renderPanel);
+  initState(cubeGroup, rebuildCube, renderPanel);
   initRotation(cubeGroup, () => _glowStateRef);
 
   // 3. Build initial cube
@@ -167,7 +172,7 @@ async function boot() {
     queueRotation,
     readCubeState: () => readCubeState(cubeGroup),
     waitAnimDone,
-    buildCube: () => buildCube(cubeGroup, getLetters()),
+    buildCube: rebuildCube,
     getLetters,
     setLetters,
     clearGlow,
@@ -195,12 +200,12 @@ async function boot() {
     cubeGroup,
     getLetters,
     setLetters,
-    buildCube: () => buildCube(cubeGroup, getLetters()),
+    buildCube: rebuildCube,
   });
 
   initPipelineBar({
     stopIdle,
-    buildCube: () => buildCube(cubeGroup, getLetters()),
+    buildCube: rebuildCube,
     cubeGroup,
     renderPanel,
     waitAnimDone,
@@ -464,7 +469,7 @@ function loadFromHash() {
         }, {
           parseKey,
           setLetters,
-          buildCube: () => buildCube(cubeGroup, getLetters()),
+          buildCube: rebuildCube,
           renderPanel,
           getLetters,
           DEFAULT_LETTERS,
@@ -488,7 +493,7 @@ function loadFromHash() {
     if (!parsed) return false;
     clearHighlight();
     setLetters(parsed);
-    buildCube(cubeGroup, getLetters());
+    rebuildCube();
     renderPanel();
     return true;
   }

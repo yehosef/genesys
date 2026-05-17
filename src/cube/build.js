@@ -73,6 +73,11 @@ export const texCache = new Map();
 export const INNER_MAT = new THREE.MeshLambertMaterial({ color: 0x111116 });
 export const GEO = new THREE.BoxGeometry(0.92, 0.92, 0.92);
 
+function disposeMeshMaterials(mesh) {
+  if (!Array.isArray(mesh.material)) return;
+  mesh.material.forEach(m => { if (m !== INNER_MAT) m.dispose(); });
+}
+
 /** Generate (or retrieve from cache) a canvas texture for a letter face */
 export function faceTex(letter, rotation = 0) {
   const key = letter + '_' + rotation;
@@ -113,7 +118,9 @@ export function buildCube(cubeGroup, letters) {
   while (cubeGroup.children.length) {
     const ch = cubeGroup.children[0];
     cubeGroup.remove(ch);
-    if (Array.isArray(ch.material)) ch.material.forEach(m => { if (m !== INNER_MAT) m.dispose(); });
+    ch.traverse(obj => {
+      if (obj.isMesh) disposeMeshMaterials(obj);
+    });
   }
 
   for (let i = 0; i < POSITIONS.length; i++) {

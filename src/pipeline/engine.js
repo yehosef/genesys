@@ -30,6 +30,7 @@ export let pInitLetters = null;
 export let pInitialized = false;
 export let pSrcPreset = 'mezuzah';
 export let pSourceText = MEZUZAH_TEXT;
+let pPlaybackEpoch = 0;
 
 // ── Chain state ─────────────────────────────────────────────────────
 export let pChain = defaultChain();
@@ -179,6 +180,7 @@ export function renderPipeStepLog() {
 // ── Play / Pause ─────────────────────────────────────────────────────
 export function pPlay() {
   if (!pSourceText.length) return;
+  if (pPlaying) return;
   if (deps.stopIdle) deps.stopIdle();
   pPlaying = true;
   const btn = el('pipe-play');
@@ -186,7 +188,9 @@ export function pPlay() {
     btn.textContent = '\u23F8 Pause';
     btn.classList.add('playing');
   }
-  pPlayLoop();
+  waitAnimDone(() => {
+    if (pPlaying) pPlayLoop();
+  });
 }
 
 export function pPause() {
@@ -207,6 +211,7 @@ export function pPlayLoop() {
 export function pStepFwd(onDone) {
   if (pIdx >= pPreparedLetters.length) { pPause(); return; }
   if (deps.stopIdle) deps.stopIdle();
+  const stepEpoch = pPlaybackEpoch;
 
   const rotSeq = pRotStep ? resolveRotSeq(pRotStep) : [];
   const inputLetter = pPreparedLetters[pIdx];
@@ -272,6 +277,7 @@ export function pStepFwd(onDone) {
   deps.queueRotation(move.axis, move.layer, angle, pSpeed);
 
   waitAnimDone(() => {
+    if (stepEpoch !== pPlaybackEpoch) return;
     const stateAfter = deps.readCubeState();
     const outLetter = stateAfter[posIdx];
     pInput.push(inputLetter);
@@ -306,6 +312,7 @@ export function pStepFwd(onDone) {
 export function pStepBack() {
   if (pIdx === 0) return;
   pClearGlow();
+  const stepEpoch = pPlaybackEpoch;
 
   pIdx--;
   pInput.pop();
@@ -316,7 +323,9 @@ export function pStepBack() {
     const prev = pMoves.pop();
     pStates.pop();
     deps.queueRotation(prev.axis, prev.layer, -prev.angle, pSpeed);
-    waitAnimDone(() => renderPipeAll());
+    waitAnimDone(() => {
+      if (stepEpoch === pPlaybackEpoch) renderPipeAll();
+    });
   } else {
     renderPipeAll();
   }
@@ -324,6 +333,7 @@ export function pStepBack() {
 
 // ── Reset ────────────────────────────────────────────────────────────
 export function pReset() {
+  pPlaybackEpoch++;
   pPause();
   pClearGlow();
   if (pInitLetters) {
@@ -345,6 +355,7 @@ export function pReset() {
 export function pRunAll() {
   if (!pSourceText.length) return;
 
+  pPlaybackEpoch++;
   pPause();
   pClearGlow();
   if (deps.stopIdle) deps.stopIdle();
