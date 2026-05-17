@@ -50,6 +50,8 @@ import { initComparePanel, openComparePanel } from './ui/compare-panel.js';
 import { initExperimentsGallery } from './ui/experiments.js';
 import { DEMO_EXPERIMENTS } from './data/demos.js';
 
+const INITIAL_DEMO_ROTATION_MS = 500;
+
 // ── Raycaster for click-to-rotate ────────────────────────────────────
 const raycaster = new THREE.Raycaster();
 const ptrStart = new THREE.Vector2();
@@ -74,6 +76,14 @@ let _glowStateYellowStart = 0;
 function rebuildCube() {
   cancelRotations({ disposeMaterials: true });
   buildCube(cubeGroup, getLetters());
+}
+
+function setPipelineSpeed(speedMs) {
+  setPSpeed(speedMs);
+  const speedInput = document.getElementById('pipe-speed');
+  const speedValue = document.getElementById('pipe-speed-val');
+  if (speedInput) speedInput.value = String(speedMs);
+  if (speedValue) speedValue.textContent = speedMs + 'ms';
 }
 
 // ── Load a recipe hash programmatically (pipeline open + auto-run) ───
@@ -109,7 +119,7 @@ function applyRecipeAndRun(recipeHash, { animate = false, caption = null } = {})
     // Show caption if provided
     if (caption) showCaption(caption);
     setTimeout(() => {
-      setPSpeed(80);
+      setPipelineSpeed(INITIAL_DEMO_ROTATION_MS);
       pPlay();
     }, 400);
   } else {
